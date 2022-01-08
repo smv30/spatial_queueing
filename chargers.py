@@ -20,11 +20,17 @@ class SuperCharger:
         self.occupancy = 0
         self.n_cars_waiting = 0
 
-    def update_occupancy(self):
-        if self.occupancy < self.n_posts:
-            self.occupancy = self.occupancy + 1
+    def update_occupancy(self, increase=True):
+        if increase:
+            if self.occupancy < self.n_posts:
+                self.occupancy = self.occupancy + 1
+            else:
+                self.n_cars_waiting = self.n_cars_waiting + 1
         else:
-            self.n_cars_waiting = self.n_cars_waiting + 1
+            if self.n_cars_waiting > 0:
+                self.n_cars_waiting = self.n_cars_waiting - 1
+            else:
+                self.occupancy = self.occupancy - 1
 
     def to_dict(self):
         return {
