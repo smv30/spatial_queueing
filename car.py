@@ -16,9 +16,9 @@ class Car:
                  state=None,
                  ):
         if random:
-            lat = np.random.uniform(0, SimMetaData.max_lat)
-            lon = np.random.uniform(0, SimMetaData.max_lon)
-            soc = np.random.uniform(0.5, 1)
+            lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
+            lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
+            soc = SimMetaData.random_seed_gen.uniform(0.5, 1)
             state = CarState.IDLE.value
         self.id = car_id
         self.lat = lat
@@ -43,6 +43,7 @@ class Car:
         trip.state = TripState.MATCHED
         pickup_dist_mi = ((trip.start_lat - self.lat) ** 2 + (trip.start_lon - self.lon) ** 2) ** 0.5
         pickup_time_min = pickup_dist_mi / SimMetaData.avg_vel_mph * 60
+        trip.pickup_time_min = pickup_time_min
         self.state = CarState.DRIVING_WITHOUT_PASSENGER.value
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} picking up Trip {trip.trip_id} at time {self.env.now}")
