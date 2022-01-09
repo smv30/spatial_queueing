@@ -16,10 +16,10 @@ class Trip(object):
                  end_lon=None,
                  ):
         if random:
-            start_lat = np.random.uniform(0, SimMetaData.max_lat)
-            start_lon = np.random.uniform(0, SimMetaData.max_lon)
-            end_lat = np.random.uniform(0, SimMetaData.max_lat)
-            end_lon = np.random.uniform(0, SimMetaData.max_lon)
+            start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
+            start_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
+            end_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
+            end_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
         self.start_lat = start_lat
         self.start_lon = start_lon
         self.end_lat = end_lat
@@ -28,6 +28,7 @@ class Trip(object):
         self.trip_id = trip_id
         self.env = env
         self.state = state
+        self.pickup_time_min = 0
 
     def calc_trip_time(self):
         trip_dist_mi = ((self.start_lat - self.end_lat) ** 2 + (self.start_lon - self.end_lon) ** 2) ** 0.5

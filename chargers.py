@@ -13,8 +13,8 @@ class SuperCharger:
         self.idx = idx
         self.n_posts = n_posts
         if random:
-            lat = np.random.uniform(0, SimMetaData.max_lat)
-            lon = np.random.uniform(0, SimMetaData.max_lon)
+            lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
+            lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
         self.lat = lat
         self.lon = lon
         self.occupancy = 0

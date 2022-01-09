@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from arrivals import Trip
-from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams
+from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgoParams
 from utils import calc_dist_between_two_points
+from data_logging import SocLogging
 
 
 class FleetManager:
@@ -20,6 +21,8 @@ class FleetManager:
         self.n_cars = n_cars
         self.renege_time_min = renege_time_min
         self.list_chargers = list_chargers
+        self.soc_logging = SocLogging()
+        self.list_trips = []
 
     def match_trips(self):
         while True:
@@ -28,9 +31,10 @@ class FleetManager:
                         arrival_time_min=curr_time_min,
                         trip_id=self.n_arrivals,
                         state=TripState.WAITING.value)
+            self.list_trips.append(trip)
             car_id, pickup_time_min = self.matching_algorithm(trip)
 
-            inter_arrival_time_min = np.random.exponential(1 / self.arrival_rate_pmin)
+            inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / self.arrival_rate_pmin)
             if car_id is not None:
                 matched_car = self.car_tracker[car_id]
                 service_time_min = pickup_time_min + trip.calc_trip_time()
@@ -40,6 +44,8 @@ class FleetManager:
 
             yield self.env.timeout(inter_arrival_time_min)
             self.n_arrivals = self.n_arrivals + 1
+            list_soc = [self.car_tracker[car].soc for car in range(self.n_cars)]
+            self.soc_logging.update_list_of_soc(curr_list_soc=list_soc)
 
     def matching_algorithm(self, trip):
         df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
@@ -68,7 +74,7 @@ class FleetManager:
             end_lat=df_list_charger["lat"],
             end_lon=df_list_charger["lon"],
         )
-        ) * SimMetaData.consumption_kwhpmi for car in range(self.n_cars)
+        ) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh for car in range(self.n_cars)
         ]
         enough_soc_mask = (
                 df_car_tracker["soc"]
@@ -76,17 +82,12 @@ class FleetManager:
                 - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
         )
 
-        available_cars = df_car_tracker[idle_cars_mask & enough_soc_mask]
-
-        if len(available_cars) == 1:
-            return int(available_cars.iloc[0]["id"]), available_cars.iloc[0]["pickup_time_min"]
-        elif len(available_cars) > 1:
-            available_cars.sort_values("pickup_time_min", inplace=True)
-            if available_cars.iloc[0]["soc"] >= available_cars.iloc[1]["soc"]:
-                loc = 0
-            else:
-                loc = 1
-            return int(available_cars.iloc[loc]["id"]), available_cars.iloc[loc]["pickup_time_min"]
+        available_cars = df_car_tracker[idle_cars_mask & enough_soc_mask].sort_values("pickup_time_min")
+        if len(available_cars) > 0:
+            d = MatchingAlgoParams.d
+            available_cars_of_interest = available_cars.iloc[0:d]
+            car_to_dispatch = available_cars_of_interest.sort_values("soc", ascending=False).iloc[0]
+            return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
         else:
             return None, None
 

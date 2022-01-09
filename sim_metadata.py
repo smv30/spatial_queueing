@@ -1,3 +1,4 @@
+import numpy as np
 from enum import Enum, auto
 
 
@@ -11,12 +12,19 @@ class SimMetaData(object):
     max_lon = 10
     n_charger_loc = 5
     n_posts = 8
-    quiet_sim = False
+    quiet_sim = True
+    results_folder = "simulation_results"
+    random_seed_gen = np.random.default_rng(2022)
+    save_results = True
 
 
 class ChargingAlgoParams(object):
-    lower_soc_threshold = 0.5
+    lower_soc_threshold = 0.2
     higher_soc_threshold = 1
+
+
+class MatchingAlgoParams(object):
+    d = 3
 
 
 class CarState(Enum):
