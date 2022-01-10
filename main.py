@@ -7,7 +7,7 @@ from datetime import datetime
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgoParams
+from sim_metadata import SimMetaData, TripState, MatchingAlgoParams, MatchingAlgo
 
 
 def run_simulation(
@@ -16,6 +16,7 @@ def run_simulation(
         arrival_rate_pmin,
         n_chargers,
         n_posts,
+        matching_algo=MatchingAlgo.POWER_OF_D_IDLE.value,
         renege_time_min=None
 ):
     env = simpy.Environment()
@@ -40,7 +41,8 @@ def run_simulation(
                                  car_tracker=car_tracker,
                                  n_cars=n_cars,
                                  renege_time_min=renege_time_min,
-                                 list_chargers=list_chargers)
+                                 list_chargers=list_chargers,
+                                 matching_algo=matching_algo)
     env.process(fleet_manager.match_trips())
     env.run(until=sim_duration)
 
@@ -54,6 +56,13 @@ def run_simulation(
         total_n_of_successful_trips = sum([int(fleet_manager.list_trips[trip].state == TripState.MATCHED)
                                           for trip in range(total_n_trips)])
         service_level_percentage = total_n_of_successful_trips / total_n_trips * 100
+
+        avg_soc = np.sum(fleet_manager.soc_logging.list_soc) / len(fleet_manager.soc_logging.list_soc) / n_cars
+        avg_n_of_charging_trips = (
+                sum([car_tracker[car].n_of_charging_stops for car in range(n_cars)])
+                / n_cars
+                / (sim_duration / 60)
+        )
         kpi = pd.DataFrame({
             "fleet_size": n_cars,
             "pack_size_kwh": SimMetaData.pack_size_kwh,
@@ -68,6 +77,9 @@ def run_simulation(
             "avg_trip_time_min": avg_trip_time_min,
             "avg_trip_dist_mi": avg_trip_dist_mi,
             "avg_pickup_time_min": avg_pickup_time_min,
+            "avg_drive_time_to_charger": 1,
+            "number_of_trips_to_charger_per_car_per_hr": avg_n_of_charging_trips,
+            "avg_soc_over_time_over_cars": avg_soc,
             "service_level_percentage": service_level_percentage,
             "matching_algorithm": f"Power of {MatchingAlgoParams.d}"
         }, index=[0])
@@ -107,9 +119,10 @@ def run_simulation(
 if __name__ == "__main__":
     run_simulation(sim_duration=50000,
                    n_cars=10,
-                   arrival_rate_pmin=1 / 10,
+                   arrival_rate_pmin=1 / 5,
                    n_chargers=10,
                    n_posts=1,
-                   renege_time_min=1
+                   renege_time_min=1,
+                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value
                    )
 

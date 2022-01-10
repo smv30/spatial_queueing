@@ -28,7 +28,8 @@ class Car:
         self.env = env
         self.list_chargers = list_chargers
         self.state_start_time = 0
-        self.active_process = None
+        self.prev_charging_process = None
+        self.n_of_charging_stops = 0
 
     def to_dict(self):
         return {
@@ -36,14 +37,16 @@ class Car:
             "lat": self.lat,
             "lon": self.lon,
             "soc": self.soc,
-            "state": self.state
+            "state": self.state,
+            "state_start_time": self.state_start_time
         }
 
-    def run_trip(self, trip, end_soc=None, charger_idx=None, charging_process=None):
+    def run_trip(self, trip, end_soc=None, charger_idx=None):
         # If the car is going to charge or charging, interrupt that process and update the SOC
         if self.state in (CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value):
-            charging_process.interrupt()
-            print(f"Car {self.id} was interrupted while charging at time {self.env.now}")
+            self.prev_charging_process.interrupt()
+            if not SimMetaData.quiet_sim:
+                print(f"Car {self.id} was interrupted while charging at time {self.env.now}")
             time_spent_in_this_state_min = self.env.now - self.state_start_time
             if self.state == CarState.DRIVING_TO_CHARGER.value:
                 consumption_kwh = (
@@ -92,7 +95,7 @@ class Car:
         if self.soc < 0:
             raise ValueError("SOC cannot be less than 0")
         if end_soc:
-            self.active_process = self.env.process(self.run_charge(end_soc, charger_idx))
+            self.prev_charging_process = self.env.process(self.run_charge(end_soc, charger_idx))
 
     def run_charge(self, end_soc, charger_idx):
         charger = self.list_chargers[charger_idx]
@@ -119,7 +122,9 @@ class Car:
         self.lon = charger_lon
         self.state = CarState.CHARGING.value
         self.state_start_time = self.env.now
+        self.soc = self.soc - consumption_kwh / SimMetaData.pack_size_kwh
         charger.update_occupancy(increase=True)
+        self.n_of_charging_stops += 1
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} starting to charge at charger {charger_idx} at time {self.env.now}")
         try:
@@ -158,9 +163,9 @@ if __name__ == "__main__":
               list_chargers=list_chargers
               )
     try:
-        car.active_process = env.process(car.run_charge(1, 1))
+        car.prev_charging_process = env.process(car.run_charge(1, 1))
     except simpy.Interrupt:
         print("interrupted")
     trip = Trip(env, 0, 1, TripState.WAITING.value)
-    env.process(car.run_trip(trip, charging_process=car.active_process))
+    env.process(car.run_trip(trip))
     env.run()
