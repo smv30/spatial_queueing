@@ -39,7 +39,9 @@ class FleetManager:
                 matched_car = self.car_tracker[car_id]
                 service_time_min = pickup_time_min + trip.calc_trip_time()
                 end_soc, closest_supercharger_idx = self.charging_algorithm(matched_car, service_time_min)
-                self.env.process(matched_car.run_trip(trip, end_soc, closest_supercharger_idx))
+                matched_car.active_process = (
+                    self.env.process(matched_car.run_trip(trip, end_soc, closest_supercharger_idx))
+                )
             self.env.process(trip.update_trip_state(renege_time_min=self.renege_time_min))
 
             yield self.env.timeout(inter_arrival_time_min)

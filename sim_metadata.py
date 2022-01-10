@@ -12,7 +12,7 @@ class SimMetaData(object):
     max_lon = 10
     n_charger_loc = 5
     n_posts = 8
-    quiet_sim = True
+    quiet_sim = False
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2022)
     save_results = True
