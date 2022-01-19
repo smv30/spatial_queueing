@@ -1,4 +1,3 @@
-import numpy as np
 from sim_metadata import SimMetaData
 
 
