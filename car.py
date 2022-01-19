@@ -1,6 +1,7 @@
-from sim_metadata import SimMetaData, CarState, TripState
+from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams
 from chargers import SuperCharger
 from arrivals import Trip
+from utils import calc_dist_between_two_points
 import simpy
 
 
@@ -18,7 +19,7 @@ class Car:
         if random:
             lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
             lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
-            soc = SimMetaData.random_seed_gen.uniform(0.5, 1)
+            soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
             state = CarState.IDLE.value
         self.id = car_id
         self.lat = lat
@@ -30,6 +31,7 @@ class Car:
         self.state_start_time = 0
         self.prev_charging_process = None
         self.n_of_charging_stops = 0
+        self.total_drive_to_charge_time = 0
 
     def to_dict(self):
         return {
@@ -64,7 +66,10 @@ class Car:
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is currently finishing a trip and cannot be matched")
         trip.state = TripState.MATCHED
-        pickup_dist_mi = ((trip.start_lat - self.lat) ** 2 + (trip.start_lon - self.lon) ** 2) ** 0.5
+        pickup_dist_mi = calc_dist_between_two_points(start_lat=trip.start_lat,
+                                                      start_lon=trip.start_lon,
+                                                      end_lat=self.lat,
+                                                      end_lon=self.lon)
         pickup_time_min = pickup_dist_mi / SimMetaData.avg_vel_mph * 60
         trip.pickup_time_min = pickup_time_min
         self.state = CarState.DRIVING_WITHOUT_PASSENGER.value
@@ -73,8 +78,8 @@ class Car:
             print(f"Car {self.id} picking up Trip {trip.trip_id} at time {self.env.now}")
         yield self.env.timeout(pickup_time_min)
 
-        trip_dist_mi = ((trip.start_lat - trip.end_lat) ** 2 + (trip.start_lon - trip.end_lon) ** 2) ** 0.5
-        trip_time_min = trip_dist_mi / SimMetaData.avg_vel_mph * 60
+        trip_time_min = trip.calc_trip_time()
+        trip_dist_mi = trip_time_min / 60 * SimMetaData.avg_vel_mph
         self.lat = trip.start_lat
         self.lon = trip.start_lon
         self.state = CarState.DRIVING_WITH_PASSENGER.value
@@ -94,7 +99,9 @@ class Car:
             print(f"Car {self.id} finished trip with an SOC equal to {self.soc} at time {self.env.now}")
         if self.soc < 0:
             raise ValueError("SOC cannot be less than 0")
-        if end_soc:
+        if ChargingAlgoParams.send_all_idle_cars_to_charge:
+            self.prev_charging_process = self.env.process(self.run_charge(1, charger_idx))
+        elif end_soc:
             self.prev_charging_process = self.env.process(self.run_charge(end_soc, charger_idx))
 
     def run_charge(self, end_soc, charger_idx):
@@ -104,7 +111,11 @@ class Car:
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is not idle to be sent to charge")
 
-        dist_to_charger_mi = ((self.lat - charger_lat) ** 2 + (self.lon - charger_lon) ** 2) ** 0.5
+        if not ChargingAlgoParams.infinite_chargers:
+            dist_to_charger_mi = ((self.lat - charger_lat) ** 2 + (self.lon - charger_lon) ** 2) ** 0.5
+        else:
+            dist_to_charger_mi = 0.001
+
         drive_time_min = dist_to_charger_mi / SimMetaData.avg_vel_mph * 60
         self.state = CarState.DRIVING_TO_CHARGER.value
         self.state_start_time = self.env.now
@@ -118,13 +129,15 @@ class Car:
         consumption_kwh = dist_to_charger_mi * SimMetaData.consumption_kwhpmi
         charge_kwh = (end_soc - self.soc) * SimMetaData.pack_size_kwh
         charge_time_min = (charge_kwh + consumption_kwh) / SimMetaData.charge_rate_kw * 60
-        self.lat = charger_lat
-        self.lon = charger_lon
+        if not ChargingAlgoParams.infinite_chargers:
+            self.lat = charger_lat
+            self.lon = charger_lon
         self.state = CarState.CHARGING.value
         self.state_start_time = self.env.now
         self.soc = self.soc - consumption_kwh / SimMetaData.pack_size_kwh
         charger.update_occupancy(increase=True)
         self.n_of_charging_stops += 1
+        self.total_drive_to_charge_time += drive_time_min
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} starting to charge at charger {charger_idx} at time {self.env.now}")
         try:
