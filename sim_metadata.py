@@ -15,6 +15,13 @@ class SimMetaData(object):
     random_seed_gen = np.random.default_rng(2022)
     save_results = True
     freq_of_data_logging_min = 5
+    AVG_TRIP_DIST_PER_MILE_SQ = 0.5214
+
+
+class MarkovianModelParams(object):
+    pickup_time_const = 20
+    d = 2
+    charge_in_one_transition = 5
 
 
 class ChargingAlgoParams(object):
