@@ -49,6 +49,9 @@ class FleetManager:
                         df_car_tracker["state"] == CarState.DRIVING_WITH_PASSENGER.value
                     )
                     avg_soc = np.mean(df_car_tracker["soc"])
+                    perp_soc = df_car_tracker["soc"] - avg_soc
+                    norm_perp_soc = (sum(perp_soc ** 2)) ** 0.5
+                    norm_soc = (sum(df_car_tracker["soc"] ** 2)) ** 0.5
                     stdev_soc = np.std(df_car_tracker["soc"])
                     self.data_logging.update_data(curr_list_soc=list_soc,
                                                   n_cars_idle=n_cars_idle,
@@ -58,13 +61,17 @@ class FleetManager:
                                                   n_cars_driving_with_passenger=n_cars_driving_with_passenger,
                                                   time_of_logging=self.env.now,
                                                   avg_soc=avg_soc,
-                                                  stdev_soc=stdev_soc
+                                                  stdev_soc=stdev_soc,
+                                                  norm_soc=norm_soc,
+                                                  norm_perp_soc=norm_perp_soc
                                                   )
                     time_to_go_for_data_logging = SimMetaData.freq_of_data_logging_min - inter_arrival_time_min
                 else:
                     time_to_go_for_data_logging = time_to_go_for_data_logging - inter_arrival_time_min
             if ChargingAlgoParams.send_all_idle_cars_to_charge:
-                id_idle_cars = df_car_tracker[df_car_tracker["state"] == CarState.IDLE.value]["id"]
+                id_idle_cars = df_car_tracker[
+                    (df_car_tracker["state"] == CarState.IDLE.value) & (df_car_tracker["soc"] <= 0.95)
+                ]["id"]
                 for car_id in id_idle_cars:
                     car = self.car_tracker[car_id]
                     list_dist_to_charger = calc_dist_between_two_points(start_lat=car.lat,

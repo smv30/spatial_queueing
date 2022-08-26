@@ -101,6 +101,8 @@ def run_simulation(
 
         soc_time_series_data = np.array(fleet_manager.data_logging.list_soc)
         df_demand_curve_data = fleet_manager.data_logging.demand_curve_to_dict()
+        norm_perp_soc_data = np.array(fleet_manager.data_logging.norm_perp_soc)
+        norm_soc_data = np.array(fleet_manager.data_logging.norm_soc)
 
         # Plot Results
         save_and_plot_results(df_demand_curve_data=df_demand_curve_data,
@@ -108,14 +110,17 @@ def run_simulation(
                               kpi=kpi,
                               top_level_dir=top_level_dir,
                               n_cars=n_cars,
-                              arrival_rate_pmin=arrival_rate_pmin
+                              arrival_rate_pmin=arrival_rate_pmin,
+                              norm_soc_data=norm_soc_data,
+                              norm_perp_soc_data=norm_perp_soc_data
                               )
 
     print(f"Simulation Time: {int((time.time() - start_time) / 60)} mins")
     return kpi
 
 
-def save_and_plot_results(df_demand_curve_data, soc_time_series_data, kpi, top_level_dir, n_cars, arrival_rate_pmin):
+def save_and_plot_results(df_demand_curve_data, soc_time_series_data, kpi, top_level_dir, n_cars, arrival_rate_pmin,
+                          norm_perp_soc_data, norm_soc_data, df_dist_array_q=None):
     # Save Data
     soc_data_folder = "soc_time_series"
     soc_data_dir = os.path.join(top_level_dir, soc_data_folder)
@@ -138,6 +143,7 @@ def save_and_plot_results(df_demand_curve_data, soc_time_series_data, kpi, top_l
     plot_dir = os.path.join(top_level_dir, "plots")
     if not os.path.isdir(plot_dir):
         os.makedirs(plot_dir)
+
     # Plotting SOC time series data for the first 20 cars
     for i in range(min(20, n_cars)):
         plt.plot(soc_time_series_data[:, i], label=f'Car {i}')
@@ -148,6 +154,7 @@ def save_and_plot_results(df_demand_curve_data, soc_time_series_data, kpi, top_l
     plt.savefig(soc_plot_file)
     plt.clf()
 
+    # Plotting demand time series data
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
     x = df_demand_curve_data["time"].to_numpy()
@@ -176,6 +183,25 @@ def save_and_plot_results(df_demand_curve_data, soc_time_series_data, kpi, top_l
     plt.savefig(demand_curve_plot_file)
     plt.clf()
 
+    # Plotting norm SOC and perp norm SOC
+    plt.plot(x, norm_soc_data, linewidth=3)
+    plt.fill_between(x, (norm_soc_data - norm_perp_soc_data / 2), (norm_soc_data + norm_perp_soc_data / 2),
+                     color='b', alpha=0.3)
+    plt.xlabel("Time (min)")
+    plt.ylabel("Norm SOC")
+    plt.title("Norm SOC with a shaded region equal to Norm perp SOC around it")
+    norm_soc_plot_file = os.path.join(plot_dir, "norm_soc.png")
+    plt.savefig(norm_soc_plot_file)
+    plt.clf()
+
+    # Plotting dist array q
+    plt.stackplot(x, np.transpose(df_dist_array_q.to_numpy()))
+    plt.xlabel("TIme (min)")
+    plt.ylabel("# of cars with a given battery level")
+    dist_array_q_plot_file = os.path.join(plot_dir, "dist_array_q.png")
+    plt.savefig(dist_array_q_plot_file)
+    plt.clf()
+
 
 if __name__ == "__main__":
     run_simulation(sim_duration=500,
@@ -183,7 +209,8 @@ if __name__ == "__main__":
                    arrival_rate_pmin=1 / 10,
                    n_chargers=10,
                    n_posts=1,
+                   d=5,
                    renege_time_min=1,
-                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value
+                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE.value
                    )
 

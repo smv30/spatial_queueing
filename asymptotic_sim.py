@@ -21,10 +21,10 @@ def asymptotic_sim(list_n=[10], alpha=0.5, c1=4, beta=1, c2=2, d=2, results_fold
         n_chargers = 1
 
         # Defining the arrival rate
-        avg_trip_dist = 0.5214 * SimMetaData.max_lon
+        avg_trip_dist = SimMetaData.AVG_TRIP_DIST_PER_MILE_SQ * SimMetaData.max_lon
         avg_trip_time_min = avg_trip_dist / SimMetaData.avg_vel_mph * 60
         arrival_rate_pmin = n / avg_trip_time_min
-        if not markovian_sim:
+        if not bool_markovian_sim:
             kpi = run_simulation(sim_duration=3000,
                                  n_cars=fleet_size,
                                  arrival_rate_pmin=arrival_rate_pmin,
@@ -61,14 +61,14 @@ if __name__ == "__main__":
     if profile:
         cProfile.run('asymptotic_sim()')
     else:
-        list_alpha = [0.5, 0.4, 0.6]
+        list_alpha = [0.5, 0.55, 0.6]
         for alpha in list_alpha:
-            asymptotic_sim(list_n=[10, 30, 50, 100, 200, 300, 500, 1000],
+            asymptotic_sim(list_n=[50, 100, 200, 500],
                            alpha=alpha,
                            c1=4,
                            beta=1,
                            c2=2,
                            d=2,
-                           results_folder=f"simulation_results/Jan_19/markovian_model_alpha_{alpha}",
+                           results_folder=f"simulation_results/Apr_2/medium_battery/markovian_model_alpha_{alpha}",
                            bool_markovian_sim=True
                            )

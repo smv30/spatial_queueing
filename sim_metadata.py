@@ -5,23 +5,23 @@ from enum import Enum, auto
 class SimMetaData(object):
     avg_vel_mph = 40
     consumption_kwhpmi = 0.25
-    pack_size_kwh = 50
+    pack_size_kwh = 8
     charge_rate_kw = 20
-    min_allowed_soc = 0.05
+    min_allowed_soc = 0.2
     max_lat = 10
     max_lon = 10
-    quiet_sim = True
+    quiet_sim = False
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2022)
     save_results = True
-    freq_of_data_logging_min = 5
+    freq_of_data_logging_min = 0.5
     AVG_TRIP_DIST_PER_MILE_SQ = 0.5214
 
 
 class MarkovianModelParams(object):
     pickup_time_const = 20
     d = 2
-    charge_in_one_transition = 5
+    charge_in_one_transition = 17
 
 
 class ChargingAlgoParams(object):
