@@ -171,6 +171,7 @@ if __name__ == "__main__":
                    n_chargers=10,
                    n_posts=1,
                    renege_time_min=1,
-                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value
+                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
+                   d=2
                    )
 
