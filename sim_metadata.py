@@ -10,10 +10,10 @@ class SimMetaData(object):
     min_allowed_soc = 0.05
     max_lat = 10
     max_lon = 10
-    quiet_sim = True
+    quiet_sim = True    # if False, it will print everything (make sure every value in main is small)
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2022)
-    save_results = True
+    save_results = True    # able to plot
     freq_of_data_logging_min = 5
 
 
@@ -21,7 +21,7 @@ class ChargingAlgoParams(object):
     lower_soc_threshold = 0.95
     higher_soc_threshold = 1
     send_all_idle_cars_to_charge = True
-    infinite_chargers = True
+    infinite_chargers = False
 
 
 class MatchingAlgo(Enum):
@@ -33,6 +33,7 @@ class CarState(Enum):
     DRIVING_WITH_PASSENGER = auto()
     DRIVING_WITHOUT_PASSENGER = auto()
     CHARGING = auto()
+    WAITING_FOR_CHARGER = auto()
     DRIVING_TO_CHARGER = auto()
     IDLE = auto()
 
@@ -42,4 +43,9 @@ class TripState(Enum):
     WAITING = auto()
     MATCHED = auto()
     RENEGED = auto()
+
+
+class ChargerState(Enum):
+    AVAILABLE = auto()
+    BUSY = auto()
 

@@ -8,7 +8,7 @@ from datetime import datetime
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgo
+from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams
 
 
 def run_simulation(
@@ -21,24 +21,31 @@ def run_simulation(
         matching_algo=MatchingAlgo.POWER_OF_D_IDLE.value,
         renege_time_min=None,
         results_folder=None,
+        infinite_chargers=None
 ):
     start_time = time.time()
     env = simpy.Environment()
+
+    # add variables not in outside to main.py
+    if infinite_chargers is not None:
+        ChargingAlgoParams.infinite_chargers = infinite_chargers
 
     # Initialize all the supercharging stations
     list_chargers = []
     for charger_idx in range(n_chargers):
         charger = SuperCharger(idx=charger_idx,
-                               n_posts=n_posts)
+                               n_posts=n_posts,
+                               env=env)
         list_chargers.append(charger)
 
     # Initializing all the cars
     car_tracker = []
     for car_id in range(n_cars):
-        car = Car(car_id=car_id,
-                  env=env,
-                  list_chargers=list_chargers)
+        car = Car(car_id=car_id, env=env, list_chargers=list_chargers)
         car_tracker.append(car)
+
+    for charger in list_chargers:
+        charger.car_tracker = car_tracker
 
     fleet_manager = FleetManager(arrival_rate_pmin=arrival_rate_pmin,
                                  env=env,
@@ -57,7 +64,7 @@ def run_simulation(
     avg_trip_dist_mi = avg_trip_time_min / 60 * SimMetaData.avg_vel_mph
 
     total_n_of_successful_trips = sum([int(fleet_manager.list_trips[trip].state == TripState.MATCHED)
-                                      for trip in range(total_n_trips)])
+                                       for trip in range(total_n_trips)])
     avg_pickup_time_min = sum(
         [fleet_manager.list_trips[trip].pickup_time_min for trip in range(total_n_trips)]
     ) / total_n_of_successful_trips
@@ -138,8 +145,8 @@ def run_simulation(
         soc = df_demand_curve_data["avg_soc"].to_numpy()
         stdev_soc = df_demand_curve_data["stdev_soc"].to_numpy()
         ax1.stackplot(x, np.transpose(df_demand_curve_data[[
-            "driving_with_passenger", "driving_without_passenger", "idle", "driving_to_charger", "charging"
-        ]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r'])
+            "driving_with_passenger", "driving_without_passenger", "idle", "driving_to_charger", "charging",
+            "waiting_for_charger"]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r', 'y'])
         ax2.plot(x, soc, 'k', linewidth=3)
         ax2.fill_between(x, (soc - stdev_soc), (soc + stdev_soc), color='k', alpha=0.2)
         lambda_times_s = arrival_rate_pmin * 0.5214 * SimMetaData.max_lon / SimMetaData.avg_vel_mph * 60
@@ -165,12 +172,14 @@ def run_simulation(
 
 
 if __name__ == "__main__":
-    run_simulation(sim_duration=500,
-                   n_cars=10,
-                   arrival_rate_pmin=1 / 10,
-                   n_chargers=10,
+    run_simulation(sim_duration=100,
+                   n_cars=100,
+                   arrival_rate_pmin=5,
+                   n_chargers=50,
                    n_posts=1,
                    renege_time_min=1,
-                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value
+                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
+                   d=2,
+                   infinite_chargers=False,
+                   results_folder="simulation_results/"
                    )
-
