@@ -28,7 +28,7 @@ class SuperCharger:
         # Add input car and end SOC (if provided) to the charger queue
         if car_id is not None:
             self.queue_list.append([car_id, end_soc])
-        # For the cars no need to wait, they still will be in the list and be removed
+        # If a car arrives and finds an empty charger, it will be added to the list and removed immediately
         while (self.state == ChargerState.AVAILABLE.value) and (len(self.queue_list) != 0):
             # Head of the line car starts charging (call car_charging function)
             car = self.car_tracker[self.queue_list[0][0]]

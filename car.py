@@ -110,11 +110,13 @@ class Car:
             self.lat = self.lat + (charger.lat - self.lat) * driving_distance_mi / total_distance_mi
             self.lon = self.lon + (charger.lon - self.lon) * driving_distance_mi / total_distance_mi
             self.state = CarState.IDLE.value
+            self.state_start_time = self.env.now
         # else if the car is waiting at the charger:
         #          update car state to idle
         #          use charger object with charger_idx to get queueing_list, then remove the car from the list
         elif self.state == CarState.WAITING_FOR_CHARGER.value:
             self.state = CarState.IDLE.value
+            self.state_start_time = self.env.now
             if [self.id, end_soc] in charger.queue_list:
                 charger.queue_list.remove([self.id, end_soc])
             else:
@@ -132,6 +134,7 @@ class Car:
             self.soc = self.soc + delta_soc
             charger.occupancy -= 1
             self.state = CarState.IDLE.value
+            self.state_start_time = self.env.now
             charger.state = ChargerState.AVAILABLE.value
             charger.queueing_at_charger(None, None)
         else:
@@ -188,12 +191,12 @@ class Car:
     def car_charging(self, charger_idx, end_soc):
         # Change the car state to CHARGING
         self.state = CarState.CHARGING.value
+        self.state_start_time = self.env.now
 
         # Add a timeout equal to charging time
         charger = self.list_chargers[charger_idx]
         charge_kwh = (end_soc - self.soc) * SimMetaData.pack_size_kwh
         charge_time_min = charge_kwh / SimMetaData.charge_rate_kw * 60
-        self.state_start_time = self.env.now
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} starting to charge at charger {charger_idx} at time {self.env.now}")
         try:

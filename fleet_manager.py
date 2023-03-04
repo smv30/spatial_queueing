@@ -34,7 +34,7 @@ class FleetManager:
 
     def match_trips(self):
         time_to_go_for_data_logging = 0
-        while True:  # everything inside runs every minute
+        while True:    # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / self.arrival_rate_pmin)
             if SimMetaData.save_results:
