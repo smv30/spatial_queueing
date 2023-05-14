@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from arrivals import Trip
-from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo
+from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState
 from utils import calc_dist_between_two_points
 from data_logging import DataLogging
 
@@ -35,6 +35,9 @@ class FleetManager:
         time_to_go_for_data_logging = 0
         while True:
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
+            self.df_list_charger = pd.DataFrame([
+                self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
+            ])
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / self.arrival_rate_pmin)
             if SimMetaData.save_results:
                 if time_to_go_for_data_logging <= 0:
@@ -64,16 +67,29 @@ class FleetManager:
                 else:
                     time_to_go_for_data_logging = time_to_go_for_data_logging - inter_arrival_time_min
             if ChargingAlgoParams.send_all_idle_cars_to_charge:
-                id_idle_cars = df_car_tracker[df_car_tracker["state"] == CarState.IDLE.value]["id"]
+                id_idle_cars = df_car_tracker[df_car_tracker["state"] == CarState.IDLE.value]["id"].sample(frac=1)
                 for car_id in id_idle_cars:
                     car = self.car_tracker[car_id]
-                    list_dist_to_charger = calc_dist_between_two_points(start_lat=car.lat,
-                                                                        start_lon=car.lon,
-                                                                        end_lat=self.df_list_charger["lat"],
-                                                                        end_lon=self.df_list_charger["lon"]
-                                                                        )
-                    closest_charger_idx = np.argmin(list_dist_to_charger)
-                    car.prev_charging_process = self.env.process(car.run_charge(1, closest_charger_idx))
+                    if len(self.df_list_charger[self.df_list_charger["state"] == ChargerState.AVAILABLE.value]) > 0:
+                        list_dist_to_charger = calc_dist_between_two_points(
+                            start_lat=car.lat,
+                            start_lon=car.lon,
+                            end_lat=self.df_list_charger[
+                                self.df_list_charger["state"] == ChargerState.AVAILABLE.value
+                                                        ]["lat"],
+                            end_lon=self.df_list_charger[
+                                self.df_list_charger["state"] == ChargerState.AVAILABLE.value
+                                                        ]["lon"]
+                                                                            )
+                        argmin_idx = np.argmin(list_dist_to_charger)
+                        closest_charger_idx = self.df_list_charger[
+                            (self.df_list_charger["state"] == ChargerState.AVAILABLE.value)
+                        ]["idx"].iloc[argmin_idx]
+                        car.prev_charging_process = self.env.process(car.run_charge(1, closest_charger_idx))
+                        car.prev_charging_process_idx = closest_charger_idx
+                        self.df_list_charger.loc[
+                            (self.df_list_charger["idx"] == closest_charger_idx), "state"
+                        ] = ChargerState.BUSY.value
             curr_time_min = self.env.now
             trip = Trip(env=self.env,
                         arrival_time_min=curr_time_min,
@@ -83,7 +99,7 @@ class FleetManager:
 
             if self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE.value:
                 car_id, pickup_time_min = self.power_of_d_closest_idle(trip, df_car_tracker)
-            elif self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING:
+            elif self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value:
                 car_id, pickup_time_min = self.power_of_d_closest_idle_or_charging(trip, df_car_tracker)
             else:
                 raise ValueError(f"Matching algorithm {self.matching_algo} does not exist")
@@ -170,7 +186,7 @@ class FleetManager:
                 * SimMetaData.avg_vel_mph
                 * SimMetaData.consumption_kwhpmi
         ) / SimMetaData.pack_size_kwh
-        soc_to_reach_closest_supercharger = 0.02
+        soc_to_reach_closest_supercharger = 0.1
         enough_soc_mask = (
                 df_car_tracker["curr_soc"]
                 - df_car_tracker["delta_soc"]
@@ -196,13 +212,19 @@ class FleetManager:
                     / SimMetaData.pack_size_kwh
             )
         end_soc = ChargingAlgoParams.higher_soc_threshold
-        dist_to_superchargers = calc_dist_between_two_points(
-                                    start_lat=car.lat,
-                                    start_lon=car.lon,
-                                    end_lat=self.df_list_charger["lat"],
-                                    end_lon=self.df_list_charger["lon"],
-                                )
-        closest_supercharger_idx = np.argmin(dist_to_superchargers)
+        if len(self.df_list_charger[self.df_list_charger["state"] == ChargerState.AVAILABLE.value]) == 0:
+            return None, None
+        dist_to_superchargers = (
+            calc_dist_between_two_points(
+                start_lat=car.lat,
+                start_lon=car.lon,
+                end_lat=self.df_list_charger[self.df_list_charger["state"] == ChargerState.AVAILABLE.value]["lat"],
+                end_lon=self.df_list_charger[self.df_list_charger["state"] == ChargerState.AVAILABLE.value]["lon"],
+                    ))
+        argmin_idx = np.argmin(dist_to_superchargers)
+        closest_supercharger_idx = self.df_list_charger[
+            (self.df_list_charger["state"] == ChargerState.AVAILABLE.value)
+        ]["idx"].iloc[argmin_idx]
         if ChargingAlgoParams.send_all_idle_cars_to_charge:
             return 1, closest_supercharger_idx
         elif trip_end_soc < ChargingAlgoParams.lower_soc_threshold:

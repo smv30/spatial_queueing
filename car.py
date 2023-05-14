@@ -1,4 +1,4 @@
-from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams
+from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams, ChargerState
 from chargers import SuperCharger
 from arrivals import Trip
 from utils import calc_dist_between_two_points
@@ -32,6 +32,7 @@ class Car:
         self.prev_charging_process = None
         self.n_of_charging_stops = 0
         self.total_drive_to_charge_time = 0
+        self.prev_charging_process_idx = None
 
     def to_dict(self):
         return {
@@ -40,13 +41,15 @@ class Car:
             "lon": self.lon,
             "soc": self.soc,
             "state": self.state,
-            "state_start_time": self.state_start_time
+            "state_start_time": self.state_start_time,
+            "prev_charging_process_idx": self.prev_charging_process_idx
         }
 
     def run_trip(self, trip, end_soc=None, charger_idx=None):
         # If the car is going to charge or charging, interrupt that process and update the SOC
         if self.state in (CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value):
             self.prev_charging_process.interrupt()
+            self.list_chargers[self.prev_charging_process_idx].state = ChargerState.AVAILABLE.value
             if not SimMetaData.quiet_sim:
                 print(f"Car {self.id} was interrupted while charging at time {self.env.now}")
             time_spent_in_this_state_min = self.env.now - self.state_start_time
@@ -99,15 +102,21 @@ class Car:
             print(f"Car {self.id} finished trip with an SOC equal to {self.soc} at time {self.env.now}")
         if self.soc < 0:
             raise ValueError("SOC cannot be less than 0")
-        if ChargingAlgoParams.send_all_idle_cars_to_charge:
-            self.prev_charging_process = self.env.process(self.run_charge(1, charger_idx))
-        elif end_soc:
-            self.prev_charging_process = self.env.process(self.run_charge(end_soc, charger_idx))
+        # if charger_idx is not None:
+        #     if ChargingAlgoParams.send_all_idle_cars_to_charge:
+        #         self.prev_charging_process = self.env.process(self.run_charge(1, charger_idx))
+        #         self.prev_charging_process_idx = charger_idx
+        #     elif end_soc is not None:
+        #         self.prev_charging_process = self.env.process(self.run_charge(end_soc, charger_idx))
+        #         self.prev_charging_process_idx = charger_idx
 
     def run_charge(self, end_soc, charger_idx):
         charger = self.list_chargers[charger_idx]
+        if charger.state == ChargerState.BUSY.value:
+            raise ValueError("Charger is busy, not able to charge")
         charger_lat = charger.lat
         charger_lon = charger.lon
+        charger.state = ChargerState.BUSY.value
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is not idle to be sent to charge")
 
@@ -125,7 +134,6 @@ class Car:
             yield self.env.timeout(drive_time_min)
         except:
             return 0
-
         consumption_kwh = dist_to_charger_mi * SimMetaData.consumption_kwhpmi
         charge_kwh = (end_soc - self.soc) * SimMetaData.pack_size_kwh
         charge_time_min = (charge_kwh + consumption_kwh) / SimMetaData.charge_rate_kw * 60
@@ -147,6 +155,7 @@ class Car:
 
         charger.update_occupancy(increase=False)
         self.state = CarState.IDLE.value
+        charger.state = ChargerState.AVAILABLE.value
         self.state_start_time = self.env.now
 
         self.soc = end_soc

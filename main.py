@@ -8,7 +8,7 @@ from datetime import datetime
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgo
+from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargerState
 
 
 def run_simulation(
@@ -29,7 +29,8 @@ def run_simulation(
     list_chargers = []
     for charger_idx in range(n_chargers):
         charger = SuperCharger(idx=charger_idx,
-                               n_posts=n_posts)
+                               n_posts=n_posts,
+                               state=ChargerState.AVAILABLE.value)
         list_chargers.append(charger)
 
     # Initializing all the cars
@@ -161,16 +162,18 @@ def run_simulation(
         plt.clf()
 
     print(f"Simulation Time: {time.time() - start_time} secs")
+    print(service_level_percentage)
     return kpi
 
 
 if __name__ == "__main__":
-    run_simulation(sim_duration=500,
-                   n_cars=10,
-                   arrival_rate_pmin=1 / 10,
-                   n_chargers=10,
+    run_simulation(sim_duration=1000,
+                   n_cars=95,
+                   arrival_rate_pmin=2,
+                   n_chargers=30,
                    n_posts=1,
                    renege_time_min=1,
-                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value
+                   d=10,
+                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
+                   results_folder="simulation_results"
                    )
-

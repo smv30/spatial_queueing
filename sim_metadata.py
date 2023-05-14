@@ -3,13 +3,13 @@ from enum import Enum, auto
 
 
 class SimMetaData(object):
-    avg_vel_mph = 40
+    avg_vel_mph = 15
     consumption_kwhpmi = 0.25
-    pack_size_kwh = 50
-    charge_rate_kw = 20
+    pack_size_kwh = 30
+    charge_rate_kw = 10
     min_allowed_soc = 0.05
-    max_lat = 10
-    max_lon = 10
+    max_lat = 15
+    max_lon = 15
     quiet_sim = True
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2022)
@@ -21,7 +21,7 @@ class ChargingAlgoParams(object):
     lower_soc_threshold = 0.95
     higher_soc_threshold = 1
     send_all_idle_cars_to_charge = True
-    infinite_chargers = True
+    infinite_chargers = False
 
 
 class MatchingAlgo(Enum):
@@ -35,6 +35,11 @@ class CarState(Enum):
     CHARGING = auto()
     DRIVING_TO_CHARGER = auto()
     IDLE = auto()
+
+
+class ChargerState(Enum):
+    AVAILABLE = auto()
+    BUSY = auto()
 
 
 class TripState(Enum):

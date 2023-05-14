@@ -6,6 +6,7 @@ class SuperCharger:
     def __init__(self,
                  idx,
                  n_posts,
+                 state,
                  random=True,
                  lat=None,
                  lon=None):
@@ -16,6 +17,7 @@ class SuperCharger:
             lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
         self.lat = lat
         self.lon = lon
+        self.state = state
         self.occupancy = 0
         self.n_cars_waiting = 0
 
@@ -36,5 +38,6 @@ class SuperCharger:
             "idx": self.idx,
             "lat": self.lat,
             "lon": self.lon,
+            "state": self.state,
             "n_posts": self.n_posts
         }
