@@ -17,8 +17,8 @@ class Car:
                  state=None,
                  ):
         if random:
-            lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
-            lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
+            lat = SimMetaData.random_seed_gen.uniform(SimMetaData.min_lat, SimMetaData.max_lat)
+            lon = SimMetaData.random_seed_gen.uniform(SimMetaData.min_lon, SimMetaData.max_lon)
             soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
             state = CarState.IDLE.value
         self.id = car_id

@@ -9,6 +9,8 @@ from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
 from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams
+from dateutil import parser
+from spatial_queueing.real_life_data_input import sampleDF
 
 
 def run_simulation(
@@ -25,6 +27,20 @@ def run_simulation(
 ):
     start_time = time.time()
     env = simpy.Environment()
+
+    first_trip_pickup_datetime = parser.parse(sampleDF["pickup_datetime"].iloc[0])
+    last_trip_dropoff_datetime = parser.parse(sampleDF["dropoff_datetime"].iloc[len(sampleDF)-1])
+    inter_arrival_time_sec = last_trip_dropoff_datetime - first_trip_pickup_datetime
+    sim_duration = int(inter_arrival_time_sec.total_seconds() / 60.0) + 1
+
+    max_longitude = sampleDF[["pickup_longitude", "dropoff_longitude"]].max().max()
+    max_latitude = sampleDF[["pickup_latitude", "dropoff_latitude"]].max().max()
+    min_longitude = sampleDF[["pickup_longitude", "dropoff_longitude"]].min().min()
+    min_latitude = sampleDF[["pickup_latitude", "dropoff_latitude"]].min().min()
+    SimMetaData.max_lon = max_longitude
+    SimMetaData.max_lat = max_latitude
+    SimMetaData.min_lon = min_longitude
+    SimMetaData.min_lat = min_latitude
 
     # add variables not in outside to main.py
     if infinite_chargers is not None:
@@ -60,6 +76,7 @@ def run_simulation(
 
     # Saving KPIs and sim metadata
     total_n_trips = len(fleet_manager.list_trips)
+    # change trip_time_min = trip.calc_trip_time() by actually using the data
     avg_trip_time_min = np.mean([fleet_manager.list_trips[trip].calc_trip_time() for trip in range(total_n_trips)])
     avg_trip_dist_mi = avg_trip_time_min / 60 * SimMetaData.avg_vel_mph
 

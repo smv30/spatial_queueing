@@ -8,13 +8,16 @@ class SimMetaData(object):
     pack_size_kwh = 50
     charge_rate_kw = 20
     min_allowed_soc = 0.05
-    max_lat = 10
-    max_lon = 10
-    quiet_sim = True    # if False, it will print everything (make sure every value in main is small)
+    max_lat = 0
+    max_lon = 0
+    min_lat = 0
+    min_lon = 0
+    quiet_sim = False    # if False, it will print everything (make sure every value in main is small)
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2022)
     save_results = True    # able to plot
     freq_of_data_logging_min = 5
+    test = True
 
 
 class ChargingAlgoParams(object):

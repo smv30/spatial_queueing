@@ -1,4 +1,5 @@
 from sim_metadata import TripState, SimMetaData
+from spatial_queueing.utils import calc_dist_between_two_points
 
 
 class Trip(object):
@@ -13,6 +14,7 @@ class Trip(object):
                  start_lon=None,
                  end_lat=None,
                  end_lon=None,
+                 trip_time_min=None,
                  ):
         if random:
             start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
@@ -28,10 +30,14 @@ class Trip(object):
         self.env = env
         self.state = state
         self.pickup_time_min = 0
+        self.trip_time_min = trip_time_min
 
+    # This function is using the wrong distance calculation manner
     def calc_trip_time(self):
-        trip_dist_mi = ((self.start_lat - self.end_lat) ** 2 + (self.start_lon - self.end_lon) ** 2) ** 0.5
-        return trip_dist_mi / SimMetaData.avg_vel_mph * 60
+        return calc_dist_between_two_points(start_lat=self.start_lat,
+                                            start_lon=self.start_lon,
+                                            end_lat=self.end_lat,
+                                            end_lon=self.end_lon)
 
     def update_trip_state(self, renege_time_min):
 
@@ -52,6 +58,3 @@ class Trip(object):
             "end_lon": self.end_lon,
             "state": self.state
         }
-
-
-

@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 from arrivals import Trip
 from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo
+from spatial_queueing.real_life_data_input import sampleDF
 from utils import calc_dist_between_two_points
 from data_logging import DataLogging
+from dateutil import parser
 
 
 # FleetManager run the functions every minute
@@ -34,9 +36,22 @@ class FleetManager:
 
     def match_trips(self):
         time_to_go_for_data_logging = 0
+        # add a counter to record the current number (index) of the trip
+        counter = 0
         while True:    # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
-            inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / self.arrival_rate_pmin)
+            # inter_arrival_time should be changed to the subtraction of the current trip and the past trip
+            # inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / self.arrival_rate_pmin)
+            if counter == 0:
+                inter_arrival_time_min = 0
+            elif counter == len(sampleDF):
+                break
+            else:
+                # TO-DO: rename sampleDF to trip_data
+                previous_pickup_datetime = parser.parse(sampleDF["pickup_datetime"].iloc[counter - 1])
+                current_pickup_datetime = parser.parse(sampleDF["pickup_datetime"].iloc[counter])
+                inter_arrival_time_sec = current_pickup_datetime - previous_pickup_datetime
+                inter_arrival_time_min = int(inter_arrival_time_sec.total_seconds() / 60) + 1
             if SimMetaData.save_results:
                 if time_to_go_for_data_logging <= 0:
                     list_soc = [self.car_tracker[car].soc for car in range(min(self.n_cars, 20))]
@@ -81,10 +96,21 @@ class FleetManager:
                         closest_charger_idx = np.argmin(list_dist_to_charger)
                         car.prev_charging_process = self.env.process(car.drive_to_charger(1, closest_charger_idx))
             curr_time_min = self.env.now
+            # change the start & end latitude & longitude
+            pickup_datetime = parser.parse(sampleDF["pickup_datetime"].iloc[counter])
+            dropoff_datetime = parser.parse(sampleDF["dropoff_datetime"].iloc[counter])
+            trip_time_sec = dropoff_datetime - pickup_datetime
+            trip_time_min = int(trip_time_sec.total_seconds() / 60)
             trip = Trip(env=self.env,
                         arrival_time_min=curr_time_min,
                         trip_id=self.n_arrivals,
-                        state=TripState.WAITING.value)
+                        state=TripState.WAITING.value,
+                        random=False,
+                        start_lon=sampleDF["pickup_longitude"].iloc[counter],
+                        start_lat=sampleDF["pickup_latitude"].iloc[counter],
+                        end_lon=sampleDF["dropoff_longitude"].iloc[counter],
+                        end_lat=sampleDF["dropoff_latitude"].iloc[counter],
+                        trip_time_min=trip_time_min)
             self.list_trips.append(trip)
 
             if self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE.value:
@@ -103,6 +129,7 @@ class FleetManager:
 
             yield self.env.timeout(inter_arrival_time_min)
             self.n_arrivals = self.n_arrivals + 1
+            counter += 1
 
     def power_of_d_closest_idle(self, trip, df_car_tracker):
         idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
@@ -118,7 +145,7 @@ class FleetManager:
                 / SimMetaData.avg_vel_mph
                 * 60
         )
-        trip_time_min = trip.calc_trip_time()
+        trip_time_min = trip.trip_time_min
         df_car_tracker["delta_soc"] = (
                                               (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
                                               * SimMetaData.avg_vel_mph
@@ -178,7 +205,7 @@ class FleetManager:
                                               * SimMetaData.avg_vel_mph
                                               * SimMetaData.consumption_kwhpmi
                                       ) / SimMetaData.pack_size_kwh
-        soc_to_reach_closest_supercharger = 0.02
+        soc_to_reach_closest_supercharger = 0.1
         enough_soc_mask = (
                 df_car_tracker["curr_soc"]
                 - df_car_tracker["delta_soc"]
