@@ -1,5 +1,4 @@
 from sim_metadata import TripState, SimMetaData
-from spatial_queueing.utils import calc_dist_between_two_points
 
 
 class Trip(object):
@@ -9,18 +8,22 @@ class Trip(object):
                  trip_id,
                  arrival_time_min,
                  state,
-                 random=True,
+                 # random=True,
                  start_lat=None,
                  start_lon=None,
                  end_lat=None,
                  end_lon=None,
-                 trip_time_min=None,
+                 trip_time_min=None
                  ):
-        if random:
-            start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
-            start_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
-            end_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
-            end_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
+        # if random:
+        #     start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+        #                                                         lon_max=DatasetParams.longitude_range_max,
+        #                                                         lat_min=DatasetParams.latitude_range_min,
+        #                                                         lat_max=DatasetParams.latitude_range_max)
+        #     end_lat, end_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+        #                                                     lon_max=DatasetParams.longitude_range_max,
+        #                                                     lat_min=DatasetParams.latitude_range_min,
+        #                                                     lat_max=DatasetParams.latitude_range_max)
         self.start_lat = start_lat
         self.start_lon = start_lon
         self.end_lat = end_lat
@@ -31,13 +34,6 @@ class Trip(object):
         self.state = state
         self.pickup_time_min = 0
         self.trip_time_min = trip_time_min
-
-    # This function is using the wrong distance calculation manner
-    def calc_trip_time(self):
-        return calc_dist_between_two_points(start_lat=self.start_lat,
-                                            start_lon=self.start_lon,
-                                            end_lat=self.end_lat,
-                                            end_lon=self.end_lon)
 
     def update_trip_state(self, renege_time_min):
 
