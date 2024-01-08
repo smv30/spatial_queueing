@@ -318,6 +318,7 @@ class FleetManager:
     def closest_available_dispatch(self, trip, df_car_tracker):
         idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
         charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
+        waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
         df_car_tracker["curr_soc"] = df_car_tracker["soc"]
         df_car_tracker.loc[df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value, "curr_soc"] = (
             (df_car_tracker.loc[df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value, "state_start_time"]
