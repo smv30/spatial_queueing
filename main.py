@@ -21,48 +21,41 @@ def run_simulation(
         n_chargers,
         n_posts,
         d,
-        dataset=None,
+        dataset_source=None,
         start_datetime=None,
         end_datetime=None,
         matching_algo=None,
         infinite_chargers=None,
         renege_time_min=None,
         results_folder=None,
-        dataset_path=None
+        dataset_path=None,
+        home_dir=None
 ):
     start_time = time.time()
     env = simpy.Environment()
 
-    if dataset == Dataset.NYTAXI.value:
+    if dataset_source == Dataset.NYTAXI.value:
         data_input = DataInput(percentile_lat_lon=DatasetParams.percentile_lat_lon)
         # call the NY taxi dataset function to get the real life dataframe
-        df_arrival_sequence, correction_factor = data_input.ny_taxi_dataset(
+        df_arrival_sequence, dist_correction_factor = data_input.ny_taxi_dataset(
             dataset_path=dataset_path,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
-            percent_of_trips=SimMetaData.percent_of_trips)
+            percent_of_trips=DatasetParams.percent_of_trips_filtered)
 
         first_trip_pickup_datetime = df_arrival_sequence["pickup_datetime"].min()
         last_trip_pickup_datetime = df_arrival_sequence["pickup_datetime"].max()
-        total_sim_time_sec = last_trip_pickup_datetime - first_trip_pickup_datetime
-        sim_duration_min = int(total_sim_time_sec.total_seconds() / 60.0) + 1
+        total_sim_time_datetime = last_trip_pickup_datetime - first_trip_pickup_datetime
+        sim_duration_min = int(total_sim_time_datetime.total_seconds() / 60.0) + 1
 
-        # max_longitude = df_arrival_sequence[["pickup_longitude", "dropoff_longitude"]].max().max()
-        # max_latitude = df_arrival_sequence[["pickup_latitude", "dropoff_latitude"]].max().max()
-        # min_longitude = df_arrival_sequence[["pickup_longitude", "dropoff_longitude"]].min().min()
-        # min_latitude = df_arrival_sequence[["pickup_latitude", "dropoff_latitude"]].min().min()
-        # SimMetaData.max_lon = max_longitude
-        # SimMetaData.max_lat = max_latitude
-        # SimMetaData.min_lon = min_longitude
-        # SimMetaData.min_lat = min_latitude
-
-    elif dataset == Dataset.RANDOMLYGENERATED.value:
+    elif dataset_source == Dataset.RANDOMLYGENERATED.value:
         data_input = DataInput()
         # call the randomly generated dataset function to get the random dataframe
-        df_arrival_sequence, correction_factor = data_input.randomly_generated_dataframe(
+        df_arrival_sequence, dist_correction_factor = data_input.randomly_generated_dataframe(
             sim_duration_min=sim_duration_min,
             arrival_rate_pmin=arrival_rate_pmin,
-            data_dir=SimMetaData.home_dir)
+            data_dir=home_dir,
+            start_datetime=start_datetime)
     else:
         raise ValueError("No such dataset exists")
 
@@ -92,10 +85,9 @@ def run_simulation(
                                  n_cars=n_cars,
                                  renege_time_min=renege_time_min,
                                  list_chargers=list_chargers,
-                                 dataset=dataset,
                                  trip_data=df_arrival_sequence,
                                  matching_algo=matching_algo,
-                                 correction_factor=correction_factor,
+                                 dist_correction_factor=dist_correction_factor,
                                  d=d)
     env.process(fleet_manager.match_trips())
     env.run(until=sim_duration_min)
@@ -124,14 +116,14 @@ def run_simulation(
 
     current_min_list = []
     num_trips_in_progress_list = []
-    if dataset == Dataset.NYTAXI.value:
+    if dataset_source == Dataset.NYTAXI.value:
         df_arrival_sequence["list_pickup_time"] = np.array([
             timedelta(minutes=fleet_manager.list_trips[trip].pickup_time_min) for trip in range(total_n_trips)
         ])
-        df_arrival_sequence["actual_pickup_time"] = pd.to_datetime(df_arrival_sequence["pickup_datetime"]) + \
-                                                    df_arrival_sequence["list_pickup_time"]
-        df_arrival_sequence["actual_dropoff_time"] = pd.to_datetime(df_arrival_sequence["dropoff_datetime"]) + \
-                                                     df_arrival_sequence["list_pickup_time"]
+        df_arrival_sequence["actual_pickup_time"] = (pd.to_datetime(df_arrival_sequence["pickup_datetime"]) +
+                                                     df_arrival_sequence["list_pickup_time"])
+        df_arrival_sequence["actual_dropoff_time"] = (pd.to_datetime(df_arrival_sequence["dropoff_datetime"]) +
+                                                      df_arrival_sequence["list_pickup_time"])
         for current_index in range(1, int(sim_duration_min / SimMetaData.demand_curve_res_min)):
             current_min_total = current_index * SimMetaData.demand_curve_res_min
             current_hour = int(current_min_total / 60)
@@ -149,7 +141,7 @@ def run_simulation(
                 num_trips_in_progress = n_cars
             current_min_list.append(current_min_total)
             num_trips_in_progress_list.append(num_trips_in_progress)
-    elif dataset == Dataset.RANDOMLYGENERATED.value:
+    elif dataset_source == Dataset.RANDOMLYGENERATED.value:
         df_arrival_sequence["list_pickup_time"] = np.array([
             fleet_manager.list_trips[trip].pickup_time_min for trip in range(total_n_trips)
         ])
@@ -167,12 +159,12 @@ def run_simulation(
             current_min_list.append(current_min)
             num_trips_in_progress_list.append(num_trips_in_progress)
 
-    pink_area = sum(num_trips_in_progress_list)
+    total_incoming_workload = sum(num_trips_in_progress_list)
     df_demand_curve_data = fleet_manager.data_logging.demand_curve_to_dict()
     df_demand_curve_data["delta_time"] = df_demand_curve_data["time"].shift(-1) - df_demand_curve_data["time"]
     df_demand_curve_data["delta_time"].fillna(0, inplace=True)
-    blue_area = (df_demand_curve_data["delta_time"] * df_demand_curve_data["driving_with_passenger"]).sum()
-    work_load = blue_area / pink_area
+    total_served_workload = (df_demand_curve_data["delta_time"] * df_demand_curve_data["driving_with_passenger"]).sum()
+    percentage_workload_served = total_served_workload / total_incoming_workload
 
     kpi = pd.DataFrame({
         "fleet_size": n_cars,
@@ -193,11 +185,10 @@ def run_simulation(
         "avg_soc_over_time_over_cars": avg_soc,
         "service_level_percentage": service_level_percentage,
         "matching_algorithm": f"Power of {d}",
-        "work_load": work_load
+        "percentage_workload_served": percentage_workload_served
     }, index=[0])
     if SimMetaData.save_results:
         # Save Results
-
         today = datetime.now()
         curr_date_and_time = today.strftime("%b_%d_%Y_%H_%M_%S")
         top_level_dir = os.path.join(results_folder, curr_date_and_time)
@@ -251,14 +242,6 @@ def run_simulation(
             "waiting_for_charger"]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r', 'y'])
         ax2.plot(x, soc, 'k', linewidth=3)
         ax2.fill_between(x, (soc - stdev_soc), (soc + stdev_soc), color='k', alpha=0.2)
-        # lambda_times_s = arrival_rate_pmin * 0.5214 * DatasetParams.longitude_range_max / SimMetaData.avg_vel_mph * 60
-        # ax1.plot(x, np.ones(len(df_demand_curve_data)) * lambda_times_s,
-        #          'tab:brown', linewidth=2)
-        # discharge_rate_by_charge_rate = (
-        #         SimMetaData.consumption_kwhpmi * SimMetaData.avg_vel_mph / SimMetaData.charge_rate_kw
-        # )
-        # frac_of_cars_driving = n_cars / (1 + discharge_rate_by_charge_rate)
-        # ax1.plot(x, np.ones(len(df_demand_curve_data)) * frac_of_cars_driving, 'tab:brown', linewidth=2)
         ax1.set_xlabel("Time (min)")
         ax1.set_ylabel("Number of Cars")
         ax1.set_ylim([0, n_cars])
@@ -276,18 +259,19 @@ def run_simulation(
 
 
 if __name__ == "__main__":
-    run_simulation(sim_duration_min=1000,
+    run_simulation(sim_duration_min=1440,
                    n_cars=3000,
                    arrival_rate_pmin=50,
                    n_chargers=520,
                    n_posts=8,
-                   d=25,
-                   dataset=Dataset.NYTAXI.value,
+                   d=3,
+                   dataset_source=Dataset.RANDOMLYGENERATED.value,
                    start_datetime=datetime(2010, 12, 1, 0, 0, 0),
                    end_datetime=datetime(2010, 12, 2, 0, 0, 0),
                    matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
                    infinite_chargers=False,
                    renege_time_min=1,
                    results_folder="simulation_results/",
-                   dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet'
+                   dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet',
+                   home_dir='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/'
                    )

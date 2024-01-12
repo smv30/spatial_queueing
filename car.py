@@ -47,7 +47,7 @@ class Car:
             "state_start_time": self.state_start_time
         }
 
-    def run_trip(self, trip, correction_factor):
+    def run_trip(self, trip, dist_correction_factor):
         # If the car is driving to charger or charging or waiting for charger, interrupt that process
         if self.state in (
                 CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
@@ -55,12 +55,11 @@ class Car:
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is currently finishing a trip and cannot be matched")
         trip.state = TripState.MATCHED
-        # Question: should we change to (start_lat=self.lat, start_lon=self.lon, end_lat=trip.start_lat, end_lon=trip.start_lon)?
-        pickup_dist_mi = calc_dist_between_two_points(start_lat=trip.start_lat,
-                                                      start_lon=trip.start_lon,
-                                                      end_lat=self.lat,
-                                                      end_lon=self.lon,
-                                                      correction_factor=correction_factor)
+        pickup_dist_mi = calc_dist_between_two_points(start_lat=self.lat,
+                                                      start_lon=self.lon,
+                                                      end_lat=trip.start_lat,
+                                                      end_lon=trip.start_lon,
+                                                      dist_correction_factor=dist_correction_factor)
         pickup_time_min = pickup_dist_mi / SimMetaData.avg_vel_mph * 60
         trip.pickup_time_min = pickup_time_min
         self.state = CarState.DRIVING_WITHOUT_PASSENGER.value
@@ -145,7 +144,7 @@ class Car:
     # Logic: drive_to_charger() call queueing_at_charger()
     #        -> queueing_at_charger() call car_charging()
     #        -> car_charging() call queueing_at_charger()
-    def drive_to_charger(self, end_soc, charger_idx, correction_factor):
+    def drive_to_charger(self, end_soc, charger_idx, dist_correction_factor):
         # Change the car state to DRIVING_TO_CHARGER
         self.charging_at_idx = charger_idx
         self.end_soc_post_charging = end_soc
@@ -160,7 +159,7 @@ class Car:
                                                               start_lon=self.lon,
                                                               end_lat=charger_lat,
                                                               end_lon=charger_lon,
-                                                              correction_factor=correction_factor)
+                                                              dist_correction_factor=dist_correction_factor)
         else:
             dist_to_charger_mi = 0.001
 
@@ -177,8 +176,9 @@ class Car:
 
         # Reduce SOC by the amount spent while driving to the charger
         consumption_kwh = dist_to_charger_mi * SimMetaData.consumption_kwhpmi
-        charge_kwh = (end_soc - self.soc) * SimMetaData.pack_size_kwh
-        charge_time_min = (charge_kwh + consumption_kwh) / SimMetaData.charge_rate_kw * 60
+        self.soc = self.soc - consumption_kwh / SimMetaData.pack_size_kwh
+
+        # Set the car location equal to the charger location
         if not ChargingAlgoParams.infinite_chargers:
             self.lat = charger_lat
             self.lon = charger_lon
@@ -196,11 +196,9 @@ class Car:
         charger.queueing_at_charger(self.id, end_soc)
 
     def car_charging(self, charger_idx, end_soc):
-        # Change the car state to CHARGING
         self.state = CarState.CHARGING.value
         self.state_start_time = self.env.now
 
-        # Add a timeout equal to charging time
         charger = self.list_chargers[charger_idx]
         charge_kwh = (end_soc - self.soc) * SimMetaData.pack_size_kwh
         charge_time_min = charge_kwh / SimMetaData.charge_rate_kw * 60
@@ -217,11 +215,9 @@ class Car:
         if self.soc < 0 or self.soc > 1:
             raise ValueError("SOC must be between 0 and 1")
 
-        # Change the car state to IDLE
         self.state = CarState.IDLE.value
         self.state_start_time = self.env.now
 
-        # Decrease the occupancy of the charger by one and set the charger state to AVAILABLE
         charger.occupancy -= 1
         charger.state = ChargerState.AVAILABLE.value
         self.charging_at_idx = None
@@ -229,8 +225,8 @@ class Car:
 
         # Call queueing_at_charger function so that cars waiting in the queue starts charging
         # Call queueing_at_charger twice for each car (every time it arrives & leaves)
-        # first time: add the car to the list and see if it needs to wait
-        # second time: let the cars behind it in the list to be charged
+        #       first time: add the car to the list and see if it needs to wait
+        #       second time: let the cars behind it in the list to be charged
         charger.queueing_at_charger(None, None)
 
 

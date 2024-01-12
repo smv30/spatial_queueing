@@ -10,20 +10,13 @@ class SimMetaData(object):
     min_allowed_soc = 0.05
     quiet_sim = True  # if False, it will print everything (make sure every value in main is small)
     results_folder = "simulation_results"
-    home_dir = '/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/'
     random_seed_gen = np.random.default_rng(2021)
     save_results = True  # able to plot
-    freq_of_data_logging_min = 0.1
+    freq_of_data_logging_min = 1
     demand_curve_res_min = 1
-    percent_of_trips = 0.5
     test = False
     max_lat = 10
     max_lon = 10
-    quiet_sim = True
-    results_folder = "simulation_results"
-    random_seed_gen = np.random.default_rng(2022)
-    save_results = True
-    freq_of_data_logging_min = 5
 
 
 class ChargingAlgoParams(object):
@@ -66,6 +59,7 @@ class Dataset(Enum):
 
 
 class DatasetParams(object):
+    percent_of_trips_filtered = 0.5
     percentile_lat_lon = 99.9
     longitude_range_min = -74
     latitude_range_min = 40.7

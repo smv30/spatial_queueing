@@ -1,4 +1,5 @@
-from sim_metadata import TripState, SimMetaData
+from sim_metadata import TripState, SimMetaData, DatasetParams
+from spatial_queueing.utils import sample_unif_points_on_sphere
 
 
 class Trip(object):
@@ -8,22 +9,22 @@ class Trip(object):
                  trip_id,
                  arrival_time_min,
                  state,
-                 # random=True,
+                 random=True,
                  start_lat=None,
                  start_lon=None,
                  end_lat=None,
                  end_lon=None,
                  trip_time_min=None
                  ):
-        # if random:
-        #     start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-        #                                                         lon_max=DatasetParams.longitude_range_max,
-        #                                                         lat_min=DatasetParams.latitude_range_min,
-        #                                                         lat_max=DatasetParams.latitude_range_max)
-        #     end_lat, end_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-        #                                                     lon_max=DatasetParams.longitude_range_max,
-        #                                                     lat_min=DatasetParams.latitude_range_min,
-        #                                                     lat_max=DatasetParams.latitude_range_max)
+        if random:
+            start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                                                lon_max=DatasetParams.longitude_range_max,
+                                                                lat_min=DatasetParams.latitude_range_min,
+                                                                lat_max=DatasetParams.latitude_range_max)
+            end_lat, end_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                                            lon_max=DatasetParams.longitude_range_max,
+                                                            lat_min=DatasetParams.latitude_range_min,
+                                                            lat_max=DatasetParams.latitude_range_max)
         self.start_lat = start_lat
         self.start_lon = start_lon
         self.end_lat = end_lat

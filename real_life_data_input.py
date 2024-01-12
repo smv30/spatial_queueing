@@ -10,6 +10,7 @@ from sim_metadata import SimMetaData, DatasetParams
 from utils import sample_unif_points_on_sphere
 import warnings
 from utils import calc_dist_between_two_points
+import datetime
 
 
 class DataInput:
@@ -59,18 +60,19 @@ class DataInput:
         plt.show()
         plt.close()
 
-    def randomly_generated_dataframe(self, sim_duration_min, arrival_rate_pmin, data_dir):
-        curr_time_min = 0
+    def randomly_generated_dataframe(self, sim_duration_min, arrival_rate_pmin, data_dir, start_datetime):
+        curr_time_datetime = start_datetime
         df_trips = pd.DataFrame({
             # "arrival_time": [],
-            "pickup_datetime": [],  # arrival_time
-            "dropoff_datetime": [],
-            "start_lat": [],
-            "start_lon": [],
-            "end_lat": [],
-            "end_lon": []
+            "pickup_datetime": pd.to_datetime([], format="%Y-%m-%d %H:%M:%S"),  # arrival_time
+            "dropoff_datetime": pd.to_datetime([], format="%Y-%m-%d %H:%M:%S"),
+            "pickup_latitude": [],
+            "pickup_longitude": [],
+            "dropoff_latitude": [],
+            "dropoff_longitude": []
         })
-        while curr_time_min <= sim_duration_min:
+        time_passed = int((curr_time_datetime - start_datetime).total_seconds() / 60)
+        while time_passed <= sim_duration_min:
             start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
                                                                 lon_max=DatasetParams.longitude_range_max,
                                                                 lat_min=DatasetParams.latitude_range_min,
@@ -83,18 +85,22 @@ class DataInput:
                                                          start_lon=start_lon,
                                                          end_lat=end_lat,
                                                          end_lon=end_lon) / SimMetaData.avg_vel_mph * 60
+            trip_time_datetime = datetime.timedelta(minutes=trip_time_min)
+            dropoff_datetime = curr_time_datetime + trip_time_datetime
             df_this_trip = pd.DataFrame({
                 # "arrival_time": [curr_time_min],
-                "pickup_datetime": [curr_time_min],
-                "dropoff_datetime": [curr_time_min + trip_time_min],
-                "start_lat": [start_lat],
-                "start_lon": [start_lon],
-                "end_lat": [end_lat],
-                "end_lon": [end_lon]
+                # datetime(year, month, day, hour, minute, second, microsecond)
+                "pickup_datetime": [curr_time_datetime],
+                "dropoff_datetime": [dropoff_datetime],
+                "pickup_latitude": [start_lat],
+                "pickup_longitude": [start_lon],
+                "dropoff_latitude": [end_lat],
+                "dropoff_longitude": [end_lon]
             })
             df_trips = pd.concat([df_trips, df_this_trip], ignore_index=True)
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / arrival_rate_pmin)
-            curr_time_min = curr_time_min + inter_arrival_time_min
+            inter_arrival_time_datetime = datetime.timedelta(minutes=inter_arrival_time_min)
+            curr_time_datetime = curr_time_datetime + inter_arrival_time_datetime
         if not os.path.isdir(data_dir):
             os.makedirs(data_dir)
         trips_csv_path = os.path.join(
