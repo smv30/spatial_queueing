@@ -10,7 +10,7 @@ from datetime import timedelta
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams, Dataset, DatasetParams
+from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams, Dataset, DatasetParams, MatchingAlgoParams
 from spatial_queueing.real_life_data_input import DataInput
 
 
@@ -25,14 +25,16 @@ def run_simulation(
         start_datetime=None,
         end_datetime=None,
         matching_algo=None,
+        send_only_idle_cars=None,
         infinite_chargers=None,
         renege_time_min=None,
         results_folder=None,
-        dataset_path=None,
-        home_dir=None
+        dataset_path=None
 ):
     start_time = time.time()
     env = simpy.Environment()
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    home_dir = os.path.join(current_dir, "spatial_queueing")
 
     if dataset_source == Dataset.NYTAXI.value:
         data_input = DataInput(percentile_lat_lon=DatasetParams.percentile_lat_lon)
@@ -62,12 +64,16 @@ def run_simulation(
     if infinite_chargers is not None:
         ChargingAlgoParams.infinite_chargers = infinite_chargers
 
+    if send_only_idle_cars is not None:
+        MatchingAlgoParams.send_only_idle_cars = send_only_idle_cars
+
     # Initialize all supercharging stations
     list_chargers = []
     for charger_idx in range(n_chargers):
         charger = SuperCharger(idx=charger_idx,
                                n_posts=n_posts,
-                               env=env)
+                               env=env,
+                               df_arrival_sequence=df_arrival_sequence)
         list_chargers.append(charger)
 
     # Initializing all cars
@@ -95,7 +101,7 @@ def run_simulation(
     # Saving KPIs and sim metadata
     total_n_trips = len(fleet_manager.list_trips)
     avg_trip_time_min = np.mean([fleet_manager.list_trips[trip].trip_time_min for trip in range(total_n_trips)])
-    avg_trip_dist_mi = avg_trip_time_min / 60 * SimMetaData.avg_vel_mph
+    avg_trip_dist_mi = np.mean([fleet_manager.list_trips[trip].trip_distance_mi for trip in range(total_n_trips)])
 
     total_n_of_successful_trips = sum([int(fleet_manager.list_trips[trip].state == TripState.MATCHED)
                                        for trip in range(total_n_trips)])
@@ -116,48 +122,33 @@ def run_simulation(
 
     current_min_list = []
     num_trips_in_progress_list = []
-    if dataset_source == Dataset.NYTAXI.value:
-        df_arrival_sequence["list_pickup_time"] = np.array([
-            timedelta(minutes=fleet_manager.list_trips[trip].pickup_time_min) for trip in range(total_n_trips)
-        ])
-        df_arrival_sequence["actual_pickup_time"] = (pd.to_datetime(df_arrival_sequence["pickup_datetime"]) +
-                                                     df_arrival_sequence["list_pickup_time"])
-        df_arrival_sequence["actual_dropoff_time"] = (pd.to_datetime(df_arrival_sequence["dropoff_datetime"]) +
-                                                      df_arrival_sequence["list_pickup_time"])
-        for current_index in range(1, int(sim_duration_min / SimMetaData.demand_curve_res_min)):
-            current_min_total = current_index * SimMetaData.demand_curve_res_min
-            current_hour = int(current_min_total / 60)
-            current_min_minus_hour = current_min_total - current_hour * 60
-            trips_in_progress = df_arrival_sequence[
-                (df_arrival_sequence["actual_pickup_time"] <= datetime(2010, 12, 1, current_hour,
-                                                                       current_min_minus_hour,
-                                                                       0)) &
-                (df_arrival_sequence["actual_dropoff_time"] > datetime(2010, 12, 1, current_hour,
-                                                                       current_min_minus_hour,
-                                                                       0))
-                ]
-            num_trips_in_progress = len(trips_in_progress)
-            if num_trips_in_progress > n_cars:
-                num_trips_in_progress = n_cars
-            current_min_list.append(current_min_total)
-            num_trips_in_progress_list.append(num_trips_in_progress)
-    elif dataset_source == Dataset.RANDOMLYGENERATED.value:
-        df_arrival_sequence["list_pickup_time"] = np.array([
-            fleet_manager.list_trips[trip].pickup_time_min for trip in range(total_n_trips)
-        ])
-        df_arrival_sequence["actual_pickup_time"] = (df_arrival_sequence["pickup_datetime"] +
-                                                     df_arrival_sequence["list_pickup_time"])
-        df_arrival_sequence["actual_dropoff_time"] = (df_arrival_sequence["dropoff_datetime"] +
-                                                      df_arrival_sequence["list_pickup_time"])
-        for current_index in range(1, int(sim_duration_min / SimMetaData.demand_curve_res_min)):
-            current_min = current_index * SimMetaData.demand_curve_res_min
-            trips_in_progress = df_arrival_sequence[(df_arrival_sequence["actual_pickup_time"] <= current_min) &
-                                                    (df_arrival_sequence["actual_dropoff_time"] > current_min)]
-            num_trips_in_progress = len(trips_in_progress)
-            if num_trips_in_progress > n_cars:
-                num_trips_in_progress = n_cars
-            current_min_list.append(current_min)
-            num_trips_in_progress_list.append(num_trips_in_progress)
+    df_arrival_sequence["list_pickup_time"] = np.array([
+        timedelta(minutes=fleet_manager.list_trips[trip].pickup_time_min) for trip in range(total_n_trips)
+    ])
+    df_arrival_sequence["actual_pickup_time"] = (pd.to_datetime(df_arrival_sequence["pickup_datetime"]) +
+                                                 df_arrival_sequence["list_pickup_time"])
+    df_arrival_sequence["actual_dropoff_time"] = (pd.to_datetime(df_arrival_sequence["dropoff_datetime"]) +
+                                                  df_arrival_sequence["list_pickup_time"])
+    start_day = start_datetime.day
+    start_hour = start_datetime.hour
+    start_minute = start_datetime.minute
+    for current_index in range(1, int(sim_duration_min / SimMetaData.demand_curve_res_min)):
+        current_min_total = (current_index * SimMetaData.demand_curve_res_min
+                             + start_day * 1440 + start_hour * 60 + start_minute)
+        current_day = int(current_min_total / 1440)
+        current_hour = int(current_min_total % 1440 / 60)
+        current_min = current_min_total - current_day * 1440 - current_hour * 60
+        trips_in_progress = df_arrival_sequence[
+            (df_arrival_sequence["actual_pickup_time"] <= datetime(2010, 12, current_day,
+                                                                   current_hour, current_min, 0)) &
+            (df_arrival_sequence["actual_dropoff_time"] > datetime(2010, 12, current_day,
+                                                                   current_hour, current_min, 0))
+            ]
+        num_trips_in_progress = len(trips_in_progress)
+        if num_trips_in_progress > n_cars:
+            num_trips_in_progress = n_cars
+        current_min_list.append(current_index * SimMetaData.demand_curve_res_min)
+        num_trips_in_progress_list.append(num_trips_in_progress)
 
     total_incoming_workload = sum(num_trips_in_progress_list)
     df_demand_curve_data = fleet_manager.data_logging.demand_curve_to_dict()
@@ -264,14 +255,14 @@ if __name__ == "__main__":
                    arrival_rate_pmin=50,
                    n_chargers=520,
                    n_posts=8,
-                   d=3,
-                   dataset_source=Dataset.RANDOMLYGENERATED.value,
+                   d=2,
+                   dataset_source=Dataset.NYTAXI.value,
                    start_datetime=datetime(2010, 12, 1, 0, 0, 0),
                    end_datetime=datetime(2010, 12, 2, 0, 0, 0),
-                   matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
+                   matching_algo=MatchingAlgo.POWER_OF_D.value,
+                   send_only_idle_cars=False,
                    infinite_chargers=False,
                    renege_time_min=1,
                    results_folder="simulation_results/",
-                   dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet',
-                   home_dir='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/'
+                   dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet'
                    )

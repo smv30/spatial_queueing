@@ -19,18 +19,21 @@ class SimMetaData(object):
     max_lon = 10
 
 
+class MatchingAlgo(Enum):
+    POWER_OF_D = auto()
+    CLOSEST_AVAILABLE_DISPATCH = auto()
+
+
+class MatchingAlgoParams(object):
+    send_only_idle_cars = False  # If False, we send either idle or charging or waiting for charger
+
+
 class ChargingAlgoParams(object):
     lower_soc_threshold = 0.95
     higher_soc_threshold = 1
     safety_factor_to_reach_closest_charger = 1.5
     send_all_idle_cars_to_charge = True
     infinite_chargers = True
-
-
-class MatchingAlgo(Enum):
-    POWER_OF_D_IDLE = auto()
-    POWER_OF_D_IDLE_OR_CHARGING = auto()
-    CLOSEST_AVAILABLE_DISPATCH = auto()
 
 
 class CarState(Enum):
@@ -47,6 +50,7 @@ class TripState(Enum):
     WAITING = auto()
     MATCHED = auto()
     RENEGED = auto()
+
 
 class ChargerState(Enum):
     AVAILABLE = auto()

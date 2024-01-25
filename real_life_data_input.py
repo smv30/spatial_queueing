@@ -71,7 +71,7 @@ class DataInput:
             "dropoff_latitude": [],
             "dropoff_longitude": []
         })
-        time_passed = int((curr_time_datetime - start_datetime).total_seconds() / 60)
+        time_passed = 0
         while time_passed <= sim_duration_min:
             start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
                                                                 lon_max=DatasetParams.longitude_range_max,
@@ -87,11 +87,13 @@ class DataInput:
                                                          end_lon=end_lon) / SimMetaData.avg_vel_mph * 60
             trip_time_datetime = datetime.timedelta(minutes=trip_time_min)
             dropoff_datetime = curr_time_datetime + trip_time_datetime
+            trip_distance_mi = calc_dist_between_two_points(start_lat=start_lat, start_lon=start_lon,
+                                                            end_lat=end_lat, end_lon=end_lon)
             df_this_trip = pd.DataFrame({
                 # "arrival_time": [curr_time_min],
-                # datetime(year, month, day, hour, minute, second, microsecond)
                 "pickup_datetime": [curr_time_datetime],
                 "dropoff_datetime": [dropoff_datetime],
+                "trip_distance": [trip_distance_mi],
                 "pickup_latitude": [start_lat],
                 "pickup_longitude": [start_lon],
                 "dropoff_latitude": [end_lat],
@@ -101,6 +103,7 @@ class DataInput:
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / arrival_rate_pmin)
             inter_arrival_time_datetime = datetime.timedelta(minutes=inter_arrival_time_min)
             curr_time_datetime = curr_time_datetime + inter_arrival_time_datetime
+            time_passed = (curr_time_datetime - start_datetime).total_seconds() / 60.0
         if not os.path.isdir(data_dir):
             os.makedirs(data_dir)
         trips_csv_path = os.path.join(
@@ -108,9 +111,12 @@ class DataInput:
             f"random_data_with_arrival_rate_{arrival_rate_pmin}_per_min_and_sim_duration_{sim_duration_min}_mins.csv"
         )
         df_trips.to_csv(trips_csv_path)
-        return df_trips, 1
+        dist_correction_factor = 1
+        return df_trips, dist_correction_factor
 
     def ny_taxi_dataset(self, dataset_path, start_datetime, end_datetime, percent_of_trips):
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        sample_data_path = os.path.join(dir_path, "spatial_queueing/sampledata.csv")
         # Step 1: read the dataset and get useful columns
         if not os.path.isfile("sampledata.csv") or SimMetaData.test is False:
             entire_df = pd.read_parquet(
@@ -142,19 +148,21 @@ class DataInput:
                 df_filtered["pickup_longitude"],
                 [lower_percentile_lat_lon,
                  upper_percentile_lat_lon])
+            lower_percentile_lat_lon_latitude = np.copy(lower_percentile_lat_lon)
+            upper_percentile_lat_lon_latitude = np.copy(upper_percentile_lat_lon)
+            lower_percentile_lat_lon_longitude = np.copy(lower_percentile_lat_lon)
+            upper_percentile_lat_lon_longitude = np.copy(upper_percentile_lat_lon)
             while abs(DatasetParams.latitude_range_max - DatasetParams.latitude_range_min) > DatasetParams.delta_latitude:
-                warnings.warn("The max and min latitudes are too far away from each other, reducing the percentile by 5%.")
-                lower_percentile_lat_lon_latitude = np.copy(lower_percentile_lat_lon)
-                upper_percentile_lat_lon_latitude = np.copy(upper_percentile_lat_lon)
+                warnings.warn("The max and min latitudes are too far away from each other, "
+                              "reducing the percentile by 5%.")
                 lower_percentile_lat_lon_latitude = lower_percentile_lat_lon_latitude + 2.5
                 upper_percentile_lat_lon_latitude = upper_percentile_lat_lon_latitude - 2.5
                 DatasetParams.latitude_range_min, DatasetParams.latitude_range_max = np.percentile(
                     df_filtered["pickup_latitude"],
                     [lower_percentile_lat_lon_latitude, upper_percentile_lat_lon_latitude])
             while abs(DatasetParams.longitude_range_max - DatasetParams.longitude_range_min) > DatasetParams.delta_longitude:
-                warnings.warn("The max and min longitudes are too far away from each other, reducing the percentile by 5%.")
-                lower_percentile_lat_lon_longitude = np.copy(lower_percentile_lat_lon)
-                upper_percentile_lat_lon_longitude = np.copy(upper_percentile_lat_lon)
+                warnings.warn("The max and min longitudes are too far away from each other, "
+                              "reducing the percentile by 5%.")
                 lower_percentile_lat_lon_longitude = lower_percentile_lat_lon_longitude + 2.5
                 upper_percentile_lat_lon_longitude = upper_percentile_lat_lon_longitude - 2.5
                 DatasetParams.longitude_range_min, DatasetParams.longitude_range_max = np.percentile(
@@ -178,11 +186,15 @@ class DataInput:
             df_output.reset_index(drop=True)
 
             # Step 3: save the dataframe into a CSV file or read the dataframe from a CSV file
-            df_output.to_csv(
-                "/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/sampledata.csv")
+            df_output.to_csv(sample_data_path)
         else:
-            df_output = pd.read_csv(
-                "/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/sampledata.csv")
+            df_output = pd.read_csv(sample_data_path)
+
+        df_output["pickup_datetime"] = pd.to_datetime(df_output["pickup_datetime"])
+        df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
+        df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output["pickup_datetime"]).dt.total_seconds() / 60.0
+        SimMetaData.avg_vel_mph = sum(df_output["trip_distance"]) / sum(df_output["trip_time_min"]) * 60
+        warnings.warn(f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
 
         # Plot all trips' start longitude in a histogram
         if not SimMetaData.quiet_sim:

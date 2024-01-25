@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from arrivals import Trip
-from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState, Dataset
+from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState, Dataset, \
+    MatchingAlgoParams
 from utils import calc_dist_between_two_points
 from data_logging import DataLogging
 
@@ -86,7 +87,8 @@ class FleetManager:
                 else:
                     time_to_go_for_data_logging = time_to_go_for_data_logging - inter_arrival_time_min
             if ChargingAlgoParams.send_all_idle_cars_to_charge:
-                list_cars = df_car_tracker[df_car_tracker["state"] == CarState.IDLE.value]["id"]
+                list_cars = df_car_tracker[
+                    df_car_tracker["state"] == CarState.IDLE.value].sort_values(by="soc", ascending=True)["id"]
                 list_available_chargers = self.df_list_charger[
                     self.df_list_charger["state"] == ChargerState.AVAILABLE.value]
                 for car_id in list_cars:
@@ -109,6 +111,7 @@ class FleetManager:
                         arrival_time_min=curr_time_min,
                         trip_id=self.n_arrivals,
                         state=TripState.WAITING.value,
+                        trip_distance_mi=self.trip_data["trip_distance"].iloc[counter],
                         start_lon=self.trip_data["pickup_longitude"].iloc[counter],
                         start_lat=self.trip_data["pickup_latitude"].iloc[counter],
                         end_lon=self.trip_data["dropoff_longitude"].iloc[counter],
@@ -128,47 +131,44 @@ class FleetManager:
             counter += 1
 
     # def power_of_d_closest_idle(self, trip, df_car_tracker):
-        # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
-        # df_car_tracker["pickup_time_min"] = (
-        #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
-        #                                      start_lon=df_car_tracker["lon"],
-        #                                      end_lat=trip.start_lat,
-        #                                      end_lon=trip.start_lon,
-        #                                      dist_correction_factor=self.dist_correction_factor)
-        #         / SimMetaData.avg_vel_mph
-        #         * 60
-        # )
-        # trip_time_min = trip.trip_time_min
-        # df_car_tracker["delta_soc"] = (
-        #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
-        #                                       * SimMetaData.avg_vel_mph
-        #                                       * SimMetaData.consumption_kwhpmi
-        #                               ) / SimMetaData.pack_size_kwh
-        # soc_to_reach_closest_supercharger = ChargingAlgoParams.safety_factor_to_reach_closest_charger * [
-        #     min(calc_dist_between_two_points(
-        #         start_lat=trip.end_lat,
-        #         start_lon=trip.end_lon,
-        #         end_lat=self.df_list_charger["lat"],
-        #         end_lon=self.df_list_charger["lon"],
-        #         dist_correction_factor=self.dist_correction_factor
-        #     )
-        #     ) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh for car in range(self.n_cars)
-        # ]
-        # enough_soc_mask = (
-        #         df_car_tracker["soc"]
-        #         - df_car_tracker["delta_soc"]
-        #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
-        # )
-        # available_cars = df_car_tracker[idle_cars_mask & enough_soc_mask].sort_values("pickup_time_min")
-        # if len(available_cars) > 0:
-        #     available_cars_of_interest = available_cars.iloc[0:self.d]
-        #     car_to_dispatch = available_cars_of_interest.sort_values("soc", ascending=False).iloc[0]
-        #     return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
-        # else:
-        #     return None, None
-
-    # create a new function (matching_algorithms) with the same first part of the code
-    # use an if-else to execute different matching algorithm
+    # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
+    # df_car_tracker["pickup_time_min"] = (
+    #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
+    #                                      start_lon=df_car_tracker["lon"],
+    #                                      end_lat=trip.start_lat,
+    #                                      end_lon=trip.start_lon,
+    #                                      dist_correction_factor=self.dist_correction_factor)
+    #         / SimMetaData.avg_vel_mph
+    #         * 60
+    # )
+    # trip_time_min = trip.trip_time_min
+    # df_car_tracker["delta_soc"] = (
+    #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
+    #                                       * SimMetaData.avg_vel_mph
+    #                                       * SimMetaData.consumption_kwhpmi
+    #                               ) / SimMetaData.pack_size_kwh
+    # soc_to_reach_closest_supercharger = ChargingAlgoParams.safety_factor_to_reach_closest_charger * [
+    #     min(calc_dist_between_two_points(
+    #         start_lat=trip.end_lat,
+    #         start_lon=trip.end_lon,
+    #         end_lat=self.df_list_charger["lat"],
+    #         end_lon=self.df_list_charger["lon"],
+    #         dist_correction_factor=self.dist_correction_factor
+    #     )
+    #     ) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh for car in range(self.n_cars)
+    # ]
+    # enough_soc_mask = (
+    #         df_car_tracker["soc"]
+    #         - df_car_tracker["delta_soc"]
+    #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
+    # )
+    # available_cars = df_car_tracker[idle_cars_mask & enough_soc_mask].sort_values("pickup_time_min")
+    # if len(available_cars) > 0:
+    #     available_cars_of_interest = available_cars.iloc[0:self.d]
+    #     car_to_dispatch = available_cars_of_interest.sort_values("soc", ascending=False).iloc[0]
+    #     return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
+    # else:
+    #     return None, None
 
     def matching_algorithms(self, trip, df_car_tracker):
         idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
@@ -190,12 +190,11 @@ class FleetManager:
                 / SimMetaData.avg_vel_mph
                 * 60
         )
-        trip_time_min = trip.trip_time_min
-        df_car_tracker["delta_soc"] = (
-                                              (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
-                                              * SimMetaData.avg_vel_mph
-                                              * SimMetaData.consumption_kwhpmi
-                                      ) / SimMetaData.pack_size_kwh
+        trip_distance_mi = trip.trip_distance_mi
+        df_car_tracker["delta_soc"] = ((df_car_tracker[
+                                            "pickup_time_min"] / 60 * SimMetaData.avg_vel_mph + trip_distance_mi)
+                                       * SimMetaData.consumption_kwhpmi
+                                       ) / SimMetaData.pack_size_kwh
         soc_to_reach_closest_supercharger = (min(calc_dist_between_two_points(
             start_lat=trip.end_lat,
             start_lon=trip.end_lon,
@@ -205,23 +204,14 @@ class FleetManager:
         )) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh
                                              * ChargingAlgoParams.safety_factor_to_reach_closest_charger)
 
-        if self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE.value:
-            enough_soc_mask = (
-                    df_car_tracker["soc"]
-                    - df_car_tracker["delta_soc"]
-                    - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
-            )
-            available_cars = df_car_tracker[idle_cars_mask & enough_soc_mask].sort_values("pickup_time_min")
-            if len(available_cars) > 0:
-                available_cars_of_interest = available_cars.iloc[0:self.d]
-                car_to_dispatch = available_cars_of_interest.sort_values("soc", ascending=False).iloc[0]
-                return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
+        if self.matching_algo == MatchingAlgo.POWER_OF_D.value:
+            if MatchingAlgoParams.send_only_idle_cars is True:
+                cars_of_interest = df_car_tracker[idle_cars_mask].sort_values(by=["pickup_time_min", "curr_soc"],
+                                                                              ascending=[True, False])
             else:
-                return None, None
-        elif self.matching_algo == MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value:
-            cars_of_interest = df_car_tracker[
-                (idle_cars_mask | charging_mask | waiting_for_charger_mask)
-            ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
+                cars_of_interest = df_car_tracker[
+                    (idle_cars_mask | charging_mask | waiting_for_charger_mask)
+                ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
             if len(cars_of_interest) == 0:
                 return None, None
             d_closest_cars = cars_of_interest.iloc[0:self.d]
@@ -239,9 +229,14 @@ class FleetManager:
                     - df_car_tracker["delta_soc"]
                     - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
             )
-            available_cars = df_car_tracker[
-                (idle_cars_mask | charging_mask | waiting_for_charger_mask) & enough_soc_mask
-                ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
+            if MatchingAlgoParams.send_only_idle_cars is True:
+                available_cars = df_car_tracker[
+                    idle_cars_mask & enough_soc_mask
+                    ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
+            else:
+                available_cars = df_car_tracker[
+                    (idle_cars_mask | charging_mask | waiting_for_charger_mask) & enough_soc_mask
+                    ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
             if len(available_cars) > 0:
                 car_to_dispatch = available_cars.iloc[0]
                 return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
@@ -251,94 +246,94 @@ class FleetManager:
             raise ValueError(f"Matching algorithm {self.matching_algo} does not exist")
 
     # def power_of_d_closest_idle_or_charging(self, trip, df_car_tracker):
-        # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
-        # charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
-        # waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
-        # df_car_tracker["curr_soc"] = np.copy(df_car_tracker["soc"])
-        # df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "curr_soc"] = (
-        #         (self.env.now - df_car_tracker.loc[
-        #             df_car_tracker["state"] == CarState.CHARGING.value, "state_start_time"])
-        #         / 60 * SimMetaData.charge_rate_kw / SimMetaData.pack_size_kwh
-        #         + df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "soc"]
-        # )
-        # df_car_tracker["pickup_time_min"] = (
-        #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
-        #                                      start_lon=df_car_tracker["lon"],
-        #                                      end_lat=trip.start_lat,
-        #                                      end_lon=trip.start_lon,
-        #                                      dist_correction_factor=self.dist_correction_factor)
-        #         / SimMetaData.avg_vel_mph
-        #         * 60
-        # )
-        # trip_time_min = trip.trip_time_min
-        # df_car_tracker["delta_soc"] = (
-        #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
-        #                                       * SimMetaData.avg_vel_mph
-        #                                       * SimMetaData.consumption_kwhpmi
-        #                               ) / SimMetaData.pack_size_kwh
-        # soc_to_reach_closest_supercharger = min(calc_dist_between_two_points(
-        #     start_lat=trip.end_lat,
-        #     start_lon=trip.end_lon,
-        #     end_lat=self.df_list_charger["lat"],
-        #     end_lon=self.df_list_charger["lon"],
-        #     dist_correction_factor=self.dist_correction_factor
-        # )) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh * ChargingAlgoParams.safety_factor_to_reach_closest_charger
-        # cars_of_interest = df_car_tracker[
-        #     (idle_cars_mask | charging_mask | waiting_for_charger_mask)
-        # ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
-        # if len(cars_of_interest) == 0:
-        #     return None, None
-        # d_closest_cars = cars_of_interest.iloc[0:self.d]
-        # possible_car_to_dispatch = d_closest_cars.sort_values("curr_soc", ascending=False).iloc[0]
-        # if (possible_car_to_dispatch["curr_soc"]
-        #         - possible_car_to_dispatch["delta_soc"]
-        #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
-        # ):
-        #     return int(possible_car_to_dispatch["id"]), possible_car_to_dispatch["pickup_time_min"]
-        # else:
-        #     return None, None
+    # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
+    # charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
+    # waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
+    # df_car_tracker["curr_soc"] = np.copy(df_car_tracker["soc"])
+    # df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "curr_soc"] = (
+    #         (self.env.now - df_car_tracker.loc[
+    #             df_car_tracker["state"] == CarState.CHARGING.value, "state_start_time"])
+    #         / 60 * SimMetaData.charge_rate_kw / SimMetaData.pack_size_kwh
+    #         + df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "soc"]
+    # )
+    # df_car_tracker["pickup_time_min"] = (
+    #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
+    #                                      start_lon=df_car_tracker["lon"],
+    #                                      end_lat=trip.start_lat,
+    #                                      end_lon=trip.start_lon,
+    #                                      dist_correction_factor=self.dist_correction_factor)
+    #         / SimMetaData.avg_vel_mph
+    #         * 60
+    # )
+    # trip_time_min = trip.trip_time_min
+    # df_car_tracker["delta_soc"] = (
+    #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
+    #                                       * SimMetaData.avg_vel_mph
+    #                                       * SimMetaData.consumption_kwhpmi
+    #                               ) / SimMetaData.pack_size_kwh
+    # soc_to_reach_closest_supercharger = min(calc_dist_between_two_points(
+    #     start_lat=trip.end_lat,
+    #     start_lon=trip.end_lon,
+    #     end_lat=self.df_list_charger["lat"],
+    #     end_lon=self.df_list_charger["lon"],
+    #     dist_correction_factor=self.dist_correction_factor
+    # )) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh * ChargingAlgoParams.safety_factor_to_reach_closest_charger
+    # cars_of_interest = df_car_tracker[
+    #     (idle_cars_mask | charging_mask | waiting_for_charger_mask)
+    # ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
+    # if len(cars_of_interest) == 0:
+    #     return None, None
+    # d_closest_cars = cars_of_interest.iloc[0:self.d]
+    # possible_car_to_dispatch = d_closest_cars.sort_values("curr_soc", ascending=False).iloc[0]
+    # if (possible_car_to_dispatch["curr_soc"]
+    #         - possible_car_to_dispatch["delta_soc"]
+    #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
+    # ):
+    #     return int(possible_car_to_dispatch["id"]), possible_car_to_dispatch["pickup_time_min"]
+    # else:
+    #     return None, None
 
     # def closest_available_dispatch(self, trip, df_car_tracker):
-        # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
-        # charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
-        # waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
-        # df_car_tracker["curr_soc"] = df_car_tracker["soc"]
-        # df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "curr_soc"] = (
-        #         (self.env.now - df_car_tracker.loc[
-        #             df_car_tracker["state"] == CarState.CHARGING.value, "state_start_time"])
-        #         / 60 * SimMetaData.charge_rate_kw / SimMetaData.pack_size_kwh
-        #         + df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "soc"]
-        # )
-        # df_car_tracker["pickup_time_min"] = (
-        #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
-        #                                      start_lon=df_car_tracker["lon"],
-        #                                      end_lat=trip.start_lat,
-        #                                      end_lon=trip.start_lon,
-        #                                      dist_correction_factor=self.dist_correction_factor)
-        #         / SimMetaData.avg_vel_mph
-        #         * 60
-        # )
-        # trip_time_min = trip.trip_time_min
-        # df_car_tracker["delta_soc"] = (
-        #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
-        #                                       * SimMetaData.avg_vel_mph
-        #                                       * SimMetaData.consumption_kwhpmi
-        #                               ) / SimMetaData.pack_size_kwh
-        # soc_to_reach_closest_supercharger = 0.02
-        # enough_soc_mask = (
-        #         df_car_tracker["curr_soc"]
-        #         - df_car_tracker["delta_soc"]
-        #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
-        # )
-        #
-        # available_cars = df_car_tracker[
-        #     (idle_cars_mask | charging_mask | waiting_for_charger_mask) & enough_soc_mask
-        #     ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
-        # if len(available_cars) > 0:
-        #     car_to_dispatch = available_cars.iloc[0]
-        #     return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
-        # else:
-        #     return None, None
+    # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
+    # charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
+    # waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
+    # df_car_tracker["curr_soc"] = df_car_tracker["soc"]
+    # df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "curr_soc"] = (
+    #         (self.env.now - df_car_tracker.loc[
+    #             df_car_tracker["state"] == CarState.CHARGING.value, "state_start_time"])
+    #         / 60 * SimMetaData.charge_rate_kw / SimMetaData.pack_size_kwh
+    #         + df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "soc"]
+    # )
+    # df_car_tracker["pickup_time_min"] = (
+    #         calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
+    #                                      start_lon=df_car_tracker["lon"],
+    #                                      end_lat=trip.start_lat,
+    #                                      end_lon=trip.start_lon,
+    #                                      dist_correction_factor=self.dist_correction_factor)
+    #         / SimMetaData.avg_vel_mph
+    #         * 60
+    # )
+    # trip_time_min = trip.trip_time_min
+    # df_car_tracker["delta_soc"] = (
+    #                                       (df_car_tracker["pickup_time_min"] + trip_time_min) / 60
+    #                                       * SimMetaData.avg_vel_mph
+    #                                       * SimMetaData.consumption_kwhpmi
+    #                               ) / SimMetaData.pack_size_kwh
+    # soc_to_reach_closest_supercharger = 0.02
+    # enough_soc_mask = (
+    #         df_car_tracker["curr_soc"]
+    #         - df_car_tracker["delta_soc"]
+    #         - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
+    # )
+    #
+    # available_cars = df_car_tracker[
+    #     (idle_cars_mask | charging_mask | waiting_for_charger_mask) & enough_soc_mask
+    #     ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
+    # if len(available_cars) > 0:
+    #     car_to_dispatch = available_cars.iloc[0]
+    #     return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"]
+    # else:
+    #     return None, None
 
     def closet_available_charger(self, car, list_available_chargers):
         if len(list_available_chargers["lat"]) == 0:

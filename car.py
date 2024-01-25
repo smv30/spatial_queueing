@@ -69,7 +69,7 @@ class Car:
         yield self.env.timeout(pickup_time_min)
 
         trip_time_min = trip.trip_time_min
-        trip_dist_mi = trip_time_min / 60 * SimMetaData.avg_vel_mph
+        trip_dist_mi = trip.trip_distance_mi
         self.lat = trip.start_lat
         self.lon = trip.start_lon
         self.state = CarState.DRIVING_WITH_PASSENGER.value

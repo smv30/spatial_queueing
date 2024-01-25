@@ -9,22 +9,13 @@ class Trip(object):
                  trip_id,
                  arrival_time_min,
                  state,
-                 random=True,
+                 trip_distance_mi=None,
                  start_lat=None,
                  start_lon=None,
                  end_lat=None,
                  end_lon=None,
                  trip_time_min=None
                  ):
-        if random:
-            start_lat, start_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-                                                                lon_max=DatasetParams.longitude_range_max,
-                                                                lat_min=DatasetParams.latitude_range_min,
-                                                                lat_max=DatasetParams.latitude_range_max)
-            end_lat, end_lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-                                                            lon_max=DatasetParams.longitude_range_max,
-                                                            lat_min=DatasetParams.latitude_range_min,
-                                                            lat_max=DatasetParams.latitude_range_max)
         self.start_lat = start_lat
         self.start_lon = start_lon
         self.end_lat = end_lat
@@ -33,6 +24,7 @@ class Trip(object):
         self.trip_id = trip_id
         self.env = env
         self.state = state
+        self.trip_distance_mi = trip_distance_mi
         self.pickup_time_min = 0
         self.trip_time_min = trip_time_min
 
