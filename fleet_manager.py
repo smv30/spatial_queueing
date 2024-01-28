@@ -41,6 +41,8 @@ class FleetManager:
         time_to_go_for_data_logging = 0
         # add a counter to record the current number (index) of the trip
         counter = 0
+        n_served_trips_before_updating_d = 0
+        n_cars_idle_full_soc_average = 0
         while True:  # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
             self.df_list_charger = pd.DataFrame([
@@ -72,6 +74,7 @@ class FleetManager:
                     )
                     avg_soc = np.mean(df_car_tracker["soc"])
                     stdev_soc = np.std(df_car_tracker["soc"])
+                    d = self.d
                     self.data_logging.update_data(curr_list_soc=list_soc,
                                                   n_cars_idle=n_cars_idle,
                                                   n_cars_charging=n_cars_charging,
@@ -81,7 +84,8 @@ class FleetManager:
                                                   n_cars_waiting_for_charger=n_cars_waiting_for_charger,
                                                   time_of_logging=self.env.now,
                                                   avg_soc=avg_soc,
-                                                  stdev_soc=stdev_soc
+                                                  stdev_soc=stdev_soc,
+                                                  d=d
                                                   )
                     time_to_go_for_data_logging = SimMetaData.freq_of_data_logging_min - inter_arrival_time_min
                 else:
@@ -129,6 +133,23 @@ class FleetManager:
             yield self.env.timeout(inter_arrival_time_min)
             self.n_arrivals = self.n_arrivals + 1
             counter += 1
+
+            if MatchingAlgoParams.adaptive_d is True:
+                if car_id is not None:
+                    n_served_trips_before_updating_d += 1
+                n_cars_idle_full_soc = len(df_car_tracker[(df_car_tracker["state"] == CarState.IDLE.value) &
+                                                          (df_car_tracker["soc"] >= 0.95)])
+                n_cars_idle_full_soc_average = (n_cars_idle_full_soc_average * (counter % MatchingAlgoParams.n_trips_before_updating_d)
+                                                + n_cars_idle_full_soc) / (counter % MatchingAlgoParams.n_trips_before_updating_d + 1)
+                if counter % MatchingAlgoParams.n_trips_before_updating_d == 0:
+                    if n_served_trips_before_updating_d < 0.95 * MatchingAlgoParams.n_trips_before_updating_d:
+                        if n_cars_idle_full_soc_average > MatchingAlgoParams.threshold_percent_of_cars_idling * self.n_cars:
+                            self.d += 1
+                        elif n_cars_idle_full_soc_average == 0:
+                            if self.d > 1:
+                                self.d -= 1
+                    n_served_trips_before_updating_d = 0
+                    n_cars_idle_full_soc_average = 0
 
     # def power_of_d_closest_idle(self, trip, df_car_tracker):
     # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
