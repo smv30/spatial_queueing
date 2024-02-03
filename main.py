@@ -10,7 +10,8 @@ from datetime import timedelta
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams, Dataset, DatasetParams, MatchingAlgoParams
+from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams, Dataset, DatasetParams, \
+    MatchingAlgoParams, ChargingAlgo
 from spatial_queueing.real_life_data_input import DataInput
 
 
@@ -25,6 +26,7 @@ def run_simulation(
         start_datetime=None,
         end_datetime=None,
         matching_algo=None,
+        charging_algo=None,
         send_only_idle_cars=None,
         infinite_chargers=None,
         renege_time_min=None,
@@ -79,7 +81,7 @@ def run_simulation(
     # Initializing all cars
     car_tracker = []
     for car_id in range(n_cars):
-        car = Car(car_id=car_id, env=env, list_chargers=list_chargers)
+        car = Car(car_id=car_id, env=env, list_chargers=list_chargers, df_arrival_sequence=df_arrival_sequence)
         car_tracker.append(car)
 
     for charger in list_chargers:
@@ -93,6 +95,7 @@ def run_simulation(
                                  list_chargers=list_chargers,
                                  trip_data=df_arrival_sequence,
                                  matching_algo=matching_algo,
+                                 charging_algo=charging_algo,
                                  dist_correction_factor=dist_correction_factor,
                                  d=d)
     env.process(fleet_manager.match_trips())
@@ -260,7 +263,8 @@ if __name__ == "__main__":
                    start_datetime=datetime(2010, 12, 1, 0, 0, 0),
                    end_datetime=datetime(2010, 12, 4, 0, 0, 0),
                    matching_algo=MatchingAlgo.POWER_OF_D.value,
-                   send_only_idle_cars=False,
+                   charging_algo=ChargingAlgo.CHARGE_ALL_IDLE_CARS_AT_NIGHT.value,
+                   send_only_idle_cars=True,
                    infinite_chargers=False,
                    renege_time_min=1,
                    results_folder="simulation_results/",

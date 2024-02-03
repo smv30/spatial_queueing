@@ -5,7 +5,7 @@ from enum import Enum, auto
 class SimMetaData(object):
     avg_vel_mph = 40
     consumption_kwhpmi = 0.25
-    pack_size_kwh = 15
+    pack_size_kwh = 50
     charge_rate_kw = 20
     min_allowed_soc = 0.05
     quiet_sim = True  # if False, it will print everything (make sure every value in main is small)
@@ -25,18 +25,24 @@ class MatchingAlgo(Enum):
 
 
 class MatchingAlgoParams(object):
-    send_only_idle_cars = False  # If False, we send either idle or charging or waiting for charger
+    send_only_idle_cars = True  # If False, we send either idle or charging or waiting for charger
     threshold_percent_of_cars_idling = 0.05
     n_trips_before_updating_d = 1000
-    adaptive_d = True
+    adaptive_d = False
 
 
 class ChargingAlgoParams(object):
     lower_soc_threshold = 0.95
     higher_soc_threshold = 1
     safety_factor_to_reach_closest_charger = 1.5
-    send_all_idle_cars_to_charge = True
     infinite_chargers = True
+    start_of_the_night = 0
+    end_of_the_night = 5
+
+
+class ChargingAlgo(Enum):
+    CHARGE_ALL_IDLE_CARS = auto()
+    CHARGE_ALL_IDLE_CARS_AT_NIGHT = auto()
 
 
 class CarState(Enum):

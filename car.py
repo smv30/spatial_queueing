@@ -10,7 +10,8 @@ class Car:
                  car_id,
                  env,
                  list_chargers,
-                 random=True,
+                 df_arrival_sequence,
+                 random=False,
                  lat=None,
                  lon=None,
                  soc=None,
@@ -21,6 +22,12 @@ class Car:
                                                     lon_max=DatasetParams.longitude_range_max,
                                                     lat_min=DatasetParams.latitude_range_min,
                                                     lat_max=DatasetParams.latitude_range_max)
+            soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
+            state = CarState.IDLE.value
+        else:
+            sample_trip = df_arrival_sequence.sample(1)
+            lon = sample_trip["pickup_longitude"].values[0]
+            lat = sample_trip["pickup_latitude"].values[0]
             soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
             state = CarState.IDLE.value
         self.id = car_id

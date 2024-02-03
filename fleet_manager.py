@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from arrivals import Trip
 from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState, Dataset, \
-    MatchingAlgoParams
+    MatchingAlgoParams, ChargingAlgo
 from utils import calc_dist_between_two_points
 from data_logging import DataLogging
 
@@ -18,6 +18,7 @@ class FleetManager:
                  list_chargers,
                  trip_data,
                  matching_algo,
+                 charging_algo,
                  dist_correction_factor,
                  d):
         self.arrival_rate_pmin = arrival_rate_pmin
@@ -31,6 +32,7 @@ class FleetManager:
         self.list_trips = []
         self.trip_data = trip_data
         self.matching_algo = matching_algo
+        self.charging_algo = charging_algo
         self.dist_correction_factor = dist_correction_factor
         self.df_list_charger = pd.DataFrame([
             self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
@@ -43,6 +45,7 @@ class FleetManager:
         counter = 0
         n_served_trips_before_updating_d = 0
         n_cars_idle_full_soc_average = 0
+        charge_threshold = 0.95
         while True:  # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
             self.df_list_charger = pd.DataFrame([
@@ -85,12 +88,14 @@ class FleetManager:
                                                   time_of_logging=self.env.now,
                                                   avg_soc=avg_soc,
                                                   stdev_soc=stdev_soc,
-                                                  d=d
+                                                  d=d,
+                                                  charge_threshold=charge_threshold
                                                   )
                     time_to_go_for_data_logging = SimMetaData.freq_of_data_logging_min - inter_arrival_time_min
                 else:
                     time_to_go_for_data_logging = time_to_go_for_data_logging - inter_arrival_time_min
-            if ChargingAlgoParams.send_all_idle_cars_to_charge:
+            if (self.charging_algo == ChargingAlgo.CHARGE_ALL_IDLE_CARS.value or
+                    self.charging_algo == ChargingAlgo.CHARGE_ALL_IDLE_CARS_AT_NIGHT.value):
                 list_cars = df_car_tracker[
                     df_car_tracker["state"] == CarState.IDLE.value].sort_values(by="soc", ascending=True)["id"]
                 list_available_chargers = self.df_list_charger[
@@ -98,7 +103,7 @@ class FleetManager:
                 for car_id in list_cars:
                     list_posts_available = np.copy(self.df_list_charger["n_available_posts"])
                     car = self.car_tracker[car_id]
-                    if car.soc <= 0.95:
+                    if car.soc <= charge_threshold:
                         closet_available_charger_idx = self.closet_available_charger(car, list_available_chargers)
                         if closet_available_charger_idx is not None:
                             car.prev_charging_process = self.env.process(
@@ -106,6 +111,8 @@ class FleetManager:
                             list_posts_available[closet_available_charger_idx] -= 1
                             if list_posts_available[closet_available_charger_idx] <= 0:
                                 del list_available_chargers[closet_available_charger_idx]
+            else:
+                raise ValueError(f"Charging algorithm {self.charging_algo} does not exist")
             curr_time_min = self.env.now
             pickup_datetime = self.trip_data["pickup_datetime"].iloc[counter]
             dropoff_datetime = self.trip_data["dropoff_datetime"].iloc[counter]
@@ -128,15 +135,14 @@ class FleetManager:
             if car_id is not None:
                 matched_car = self.car_tracker[car_id]
                 self.env.process(matched_car.run_trip(trip, self.dist_correction_factor))
+                n_served_trips_before_updating_d += 1
             self.env.process(trip.update_trip_state(renege_time_min=self.renege_time_min))
 
             yield self.env.timeout(inter_arrival_time_min)
             self.n_arrivals = self.n_arrivals + 1
             counter += 1
 
-            if MatchingAlgoParams.adaptive_d is True:
-                if car_id is not None:
-                    n_served_trips_before_updating_d += 1
+            if MatchingAlgoParams.adaptive_d:
                 n_cars_idle_full_soc = len(df_car_tracker[(df_car_tracker["state"] == CarState.IDLE.value) &
                                                           (df_car_tracker["soc"] >= 0.95)])
                 n_cars_idle_full_soc_average = (n_cars_idle_full_soc_average * (counter % MatchingAlgoParams.n_trips_before_updating_d)
@@ -150,6 +156,13 @@ class FleetManager:
                                 self.d -= 1
                     n_served_trips_before_updating_d = 0
                     n_cars_idle_full_soc_average = 0
+
+            if self.charging_algo == ChargingAlgo.CHARGE_ALL_IDLE_CARS_AT_NIGHT.value:
+                curr_time_in_the_day_min = curr_time_min % (24 * 60)
+                if (ChargingAlgoParams.start_of_the_night * 60) <= curr_time_in_the_day_min <= (ChargingAlgoParams.end_of_the_night * 60):
+                    charge_threshold = 0.95
+                else:
+                    charge_threshold = 0.2
 
     # def power_of_d_closest_idle(self, trip, df_car_tracker):
     # idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
