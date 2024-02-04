@@ -1,4 +1,5 @@
-from sim_metadata import TripState, SimMetaData
+from sim_metadata import TripState, SimMetaData, DatasetParams
+from spatial_queueing.utils import sample_unif_points_on_sphere
 
 
 class Trip(object):
@@ -8,17 +9,13 @@ class Trip(object):
                  trip_id,
                  arrival_time_min,
                  state,
-                 random=True,
+                 trip_distance_mi=None,
                  start_lat=None,
                  start_lon=None,
                  end_lat=None,
                  end_lon=None,
+                 trip_time_min=None
                  ):
-        if random:
-            start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
-            start_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
-            end_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
-            end_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
         self.start_lat = start_lat
         self.start_lon = start_lon
         self.end_lat = end_lat
@@ -27,11 +24,9 @@ class Trip(object):
         self.trip_id = trip_id
         self.env = env
         self.state = state
+        self.trip_distance_mi = trip_distance_mi
         self.pickup_time_min = 0
-
-    def calc_trip_time(self):
-        trip_dist_mi = ((self.start_lat - self.end_lat) ** 2 + (self.start_lon - self.end_lon) ** 2) ** 0.5
-        return trip_dist_mi / SimMetaData.avg_vel_mph * 60
+        self.trip_time_min = trip_time_min
 
     def update_trip_state(self, renege_time_min):
 
@@ -52,6 +47,3 @@ class Trip(object):
             "end_lon": self.end_lon,
             "state": self.state
         }
-
-
-
