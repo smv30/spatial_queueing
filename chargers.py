@@ -50,5 +50,6 @@ class SuperCharger:
             "idx": self.idx,
             "lat": self.lat,
             "lon": self.lon,
-            "n_posts": self.n_posts
+            "n_posts": self.n_posts,
+            "state": self.state
         }

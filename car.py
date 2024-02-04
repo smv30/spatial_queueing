@@ -19,7 +19,7 @@ class Car:
         if random:
             lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
             lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
-            soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
+            soc = SimMetaData.random_seed_gen.uniform(0.4, 0.6)
             state = CarState.IDLE.value
         self.id = car_id
         self.lat = lat
@@ -32,6 +32,8 @@ class Car:
         self.prev_charging_process = None
         self.n_of_charging_stops = 0
         self.total_drive_to_charge_time = 0
+        self.charging_at_idx = None
+        self.end_soc_post_charging = None
 
     def to_dict(self):
         return {
@@ -43,11 +45,11 @@ class Car:
             "state_start_time": self.state_start_time
         }
 
-    def run_trip(self, trip, end_soc=None, charger_idx=None):
+    def run_trip(self, trip):
         # If the car is driving to charger or charging or waiting for charger, interrupt that process
         if self.state in (
-        CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
-            self.interrupt_charging(charger_idx, end_soc)
+         CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
+            self.interrupt_charging(self.charging_at_idx, self.end_soc_post_charging)
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is currently finishing a trip and cannot be matched")
         trip.state = TripState.MATCHED
@@ -84,10 +86,6 @@ class Car:
             print(f"Car {self.id} finished trip with an SOC equal to {self.soc} at time {self.env.now}")
         if self.soc < 0:
             raise ValueError("SOC cannot be less than 0")
-        if ChargingAlgoParams.send_all_idle_cars_to_charge:
-            self.prev_charging_process = self.env.process(self.drive_to_charger(1, charger_idx))
-        elif end_soc:
-            self.prev_charging_process = self.env.process(self.drive_to_charger(end_soc, charger_idx))
 
     def interrupt_charging(self, charger_idx, end_soc):
         charger = self.list_chargers[charger_idx]
@@ -139,12 +137,16 @@ class Car:
             charger.queueing_at_charger(None, None)
         else:
             raise ValueError("Charging process is not going on to be interrupted")
+        self.charging_at_idx = None
+        self.end_soc_post_charging = None
 
     # Logic: drive_to_charger() call queueing_at_charger()
     #     -> queueing_at_charger() call car_charging()
     #     -> car_charging() call queueing_at_charger()
     def drive_to_charger(self, end_soc, charger_idx):
         # Change the car state to DRIVING_TO_CHARGER
+        self.charging_at_idx = charger_idx
+        self.end_soc_post_charging = end_soc
         charger = self.list_chargers[charger_idx]
         charger_lat = charger.lat
         charger_lon = charger.lon
@@ -219,6 +221,8 @@ class Car:
         # Decrease the occupancy of the charger by one and set the charger state to AVAILABLE
         charger.occupancy -= 1
         charger.state = ChargerState.AVAILABLE.value
+        self.end_soc_post_charging = None
+        self.charging_at_idx = None
 
         # Call queueing_at_charger function so that cars waiting in the queue starts charging
         # Call queueing_at_charger twice for each car (every time it arrives & leaves)

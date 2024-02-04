@@ -8,7 +8,7 @@ from datetime import datetime
 from car import Car
 from fleet_manager import FleetManager
 from chargers import SuperCharger
-from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams
+from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParams, ChargingAlgo
 
 
 def run_simulation(
@@ -19,9 +19,12 @@ def run_simulation(
         n_posts,
         d,
         matching_algo=MatchingAlgo.POWER_OF_D_IDLE.value,
+        charging_algo=ChargingAlgo.CHARGE_AFTER_TRIP_END.value,
         renege_time_min=None,
         results_folder=None,
-        infinite_chargers=None
+        infinite_chargers=None,
+        trip_data_csv_path="",
+        keyword_folder=""
 ):
     start_time = time.time()
     env = simpy.Environment()
@@ -29,6 +32,12 @@ def run_simulation(
     # add variables not in outside to main.py
     if infinite_chargers is not None:
         ChargingAlgoParams.infinite_chargers = infinite_chargers
+
+    if SimMetaData.random_data is False:
+        df_trip_data = pd.read_csv(trip_data_csv_path)
+        sim_duration = df_trip_data["arrival_time"].max()
+    else:
+        df_trip_data = None
 
     # Initialize all the supercharging stations
     list_chargers = []
@@ -54,13 +63,20 @@ def run_simulation(
                                  renege_time_min=renege_time_min,
                                  list_chargers=list_chargers,
                                  matching_algo=matching_algo,
-                                 d=d)
+                                 charging_algo=charging_algo,
+                                 d=d,
+                                 df_trip_data=df_trip_data)
     env.process(fleet_manager.match_trips())
     env.run(until=sim_duration)
 
     # Saving KPIs and sim metadata
     total_n_trips = len(fleet_manager.list_trips)
     avg_trip_time_min = np.mean([fleet_manager.list_trips[trip].calc_trip_time() for trip in range(total_n_trips)])
+    list_trip_time_fulfilled_trips = []
+    for trip in range(total_n_trips):
+        if fleet_manager.list_trips[trip].state == TripState.MATCHED:
+            list_trip_time_fulfilled_trips.append(fleet_manager.list_trips[trip].calc_trip_time())
+    avg_trip_time_fulfilled_min = np.mean(list_trip_time_fulfilled_trips)
     avg_trip_dist_mi = avg_trip_time_min / 60 * SimMetaData.avg_vel_mph
 
     total_n_of_successful_trips = sum([int(fleet_manager.list_trips[trip].state == TripState.MATCHED)
@@ -69,6 +85,18 @@ def run_simulation(
         [fleet_manager.list_trips[trip].pickup_time_min for trip in range(total_n_trips)]
     ) / total_n_of_successful_trips
     service_level_percentage = total_n_of_successful_trips / total_n_trips * 100
+
+    total_n_of_successful_trips_second_half = sum(
+        [
+            int(fleet_manager.list_trips[trip].state == TripState.MATCHED)
+            * int(fleet_manager.list_trips[trip].arrival_time_min >= sim_duration / 2)
+            for trip in range(total_n_trips)
+        ]
+                                                 )
+    total_n_trips_second_half = sum(
+        [int(fleet_manager.list_trips[trip].arrival_time_min >= sim_duration / 2) for trip in range(total_n_trips)]
+                                   )
+    service_level_percentage_second_half = total_n_of_successful_trips_second_half / total_n_trips_second_half * 100
 
     avg_soc = sum([car_tracker[car].soc for car in range(n_cars)]) / n_cars
     avg_n_of_charging_trips = (
@@ -79,6 +107,16 @@ def run_simulation(
     avg_drive_to_charger_time_min = sum(
         car_tracker[car].total_drive_to_charge_time for car in range(n_cars)
     ) / sum(car_tracker[car].n_of_charging_stops for car in range(n_cars))
+
+    if matching_algo == MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value and d == 1:
+        kpi_matching_algo = "Closest Dispatch"
+    elif matching_algo == MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value and d > 1:
+        kpi_matching_algo = f"Power-of-{d}"
+    elif matching_algo == MatchingAlgo.CLOSEST_AVAILABLE_DISPATCH.value:
+        kpi_matching_algo = "Closest Available Dispatch"
+    else:
+        kpi_matching_algo = "Unknown Matching Algorithm"
+
     kpi = pd.DataFrame({
         "fleet_size": n_cars,
         "pack_size_kwh": SimMetaData.pack_size_kwh,
@@ -91,20 +129,24 @@ def run_simulation(
         "arrival_rate_pmin": arrival_rate_pmin,
         "total_n_trips": total_n_trips,
         "avg_trip_time_min": avg_trip_time_min,
+        "avg_trip_time_fulfilled_min": avg_trip_time_fulfilled_min,
         "avg_trip_dist_mi": avg_trip_dist_mi,
         "avg_pickup_time_min": avg_pickup_time_min,
         "avg_drive_time_to_charger": avg_drive_to_charger_time_min,
         "number_of_trips_to_charger_per_car_per_hr": avg_n_of_charging_trips,
         "avg_soc_over_time_over_cars": avg_soc,
         "service_level_percentage": service_level_percentage,
-        "matching_algorithm": f"Power of {d}"
+        "service_level_percentage_second_half": service_level_percentage_second_half,
+        "matching_algorithm": kpi_matching_algo
     }, index=[0])
+
     if SimMetaData.save_results:
         # Save Results
 
         today = datetime.now()
         curr_date_and_time = today.strftime("%b_%d_%Y_%H_%M_%S")
-        top_level_dir = os.path.join(results_folder, curr_date_and_time)
+        folder_name = keyword_folder + curr_date_and_time
+        top_level_dir = os.path.join(results_folder, folder_name)
 
         soc_data_folder = "soc_time_series"
         soc_data_dir = os.path.join(top_level_dir, soc_data_folder)
@@ -121,6 +163,14 @@ def run_simulation(
         demand_curve_data_file = os.path.join(demand_curve_dir, "fleet_demand_curve.csv")
         df_demand_curve_data = fleet_manager.data_logging.demand_curve_to_dict()
         df_demand_curve_data.to_csv(demand_curve_data_file)
+
+        soc_dist_folder = "soc"
+        soc_dist_dir = os.path.join(top_level_dir, soc_dist_folder)
+        if not os.path.isdir(soc_dist_dir):
+            os.makedirs(soc_dist_dir)
+        soc_dist_data_file = os.path.join(soc_dist_dir, "fleet_soc_dist.csv")
+        df_soc_dist = fleet_manager.data_logging.soc_dist_to_dict()
+        df_soc_dist.to_csv(soc_dist_data_file)
 
         kpi_csv = os.path.join(top_level_dir, "kpi.csv")
         kpi.to_csv(kpi_csv)
@@ -167,19 +217,36 @@ def run_simulation(
         plt.savefig(demand_curve_plot_file)
         plt.clf()
 
+        fig, ax = plt.subplots()
+        x = df_soc_dist["time"].to_numpy()
+        ax.stackplot(x, np.transpose(
+            df_soc_dist[np.arange(0, 100, 5).astype(str)].to_numpy()
+        ))
+        ax.set_xlabel("Time (min)")
+        ax.set_ylabel("Number of Cars")
+        ax.set_ylim([0, n_cars])
+        plt.title("SoC Distribution over Time")
+        soc_dist_plot_file = os.path.join(plot_dir, "soc_dist_stackplot.png")
+        plt.savefig(soc_dist_plot_file)
+        plt.clf()
+
     print(f"Simulation Time: {time.time() - start_time} secs")
+    print(service_level_percentage)
+    print(service_level_percentage_second_half)
     return kpi
 
 
 if __name__ == "__main__":
-    run_simulation(sim_duration=100,
-                   n_cars=100,
+    run_simulation(sim_duration=1000,
+                   n_cars=106,
                    arrival_rate_pmin=5,
-                   n_chargers=50,
+                   n_chargers=330,
                    n_posts=1,
                    renege_time_min=1,
                    matching_algo=MatchingAlgo.POWER_OF_D_IDLE_OR_CHARGING.value,
+                   charging_algo=ChargingAlgo.CHARGE_AFTER_TRIP_END.value,
                    d=2,
                    infinite_chargers=False,
-                   results_folder="simulation_results/"
+                   results_folder="simulation_results/",
+                   trip_data_csv_path="data/random_data_with_arrival_rate_1_per_min_and_sim_duration_100_mins"
                    )
