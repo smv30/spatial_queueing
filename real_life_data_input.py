@@ -11,7 +11,7 @@ from utils import sample_unif_points_on_sphere
 import warnings
 from utils import calc_dist_between_two_points
 import datetime
-
+from datetime import datetime
 
 class DataInput:
     def __init__(self,
@@ -307,3 +307,7 @@ class DataInput:
 if __name__ == "__main__":
     data_input = DataInput(percentile_lat_lon=99.9)
     DataInput.plotuniftrip(data_input)
+    # ny_taxi_dataset(dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet',
+    #                 start_datetime=datetime(2010, 12, 1, 0, 0, 0),
+    #                 end_datetime=datetime(2010, 12, 4, 0, 0, 0),
+    #                 percent_of_trips=DatasetParams.percent_of_trips_filtered)

@@ -12,7 +12,7 @@ class SimMetaData(object):
     results_folder = "simulation_results"
     random_seed_gen = np.random.default_rng(2021)
     save_results = True  # able to plot
-    freq_of_data_logging_min = 1
+    freq_of_data_logging_min = 0.01
     demand_curve_res_min = 1
     test = False
     max_lat = 10
@@ -25,7 +25,7 @@ class MatchingAlgo(Enum):
 
 
 class MatchingAlgoParams(object):
-    send_only_idle_cars = True  # If False, we send either idle or charging or waiting for charger
+    send_only_idle_cars = False  # If False, we send either idle or charging or waiting for charger
     threshold_percent_of_cars_idling = 0.05
     n_trips_before_updating_d = 1000
     adaptive_d = False
@@ -38,6 +38,7 @@ class ChargingAlgoParams(object):
     infinite_chargers = True
     start_of_the_night = 0
     end_of_the_night = 5
+    n_cars_driving_to_charger_discounter = 0.5
 
 
 class ChargingAlgo(Enum):

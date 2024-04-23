@@ -31,6 +31,7 @@ class SuperCharger:
         self.lon = lon
         self.occupancy = 0
         self.n_cars_waiting = 0
+        self.n_cars_driving_to_charger = 0
         self.state = ChargerState.AVAILABLE.value
         self.queue_list = []
         self.car_tracker = None
@@ -64,5 +65,6 @@ class SuperCharger:
             "lon": self.lon,
             "n_posts": self.n_posts,
             "state": self.state,
-            "n_available_posts": max(self.n_posts - len(self.queue_list), 0)
+            "n_available_posts": self.n_posts - self.occupancy,
+            "n_cars_driving_to_charger": self.n_cars_driving_to_charger
         }
