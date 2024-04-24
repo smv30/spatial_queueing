@@ -204,10 +204,6 @@ class DataInput:
             plt.show()
             plt.close()
 
-        # Choose the range that 99.9% data of start longitude falls in
-        # lower_lon, upper_lon = np.percentile(df_output["pickup_longitude"], [0.05, 99.95])
-        # df_output = df_output[(df_output["pickup_longitude"] > lower_lon) & (df_output["pickup_longitude"] < upper_lon)]
-
         # Plot the start longitude of trips in a histogram after choosing the 99.9% range
         if not SimMetaData.quiet_sim:
             fig2, ax2 = plt.subplots()
@@ -223,10 +219,6 @@ class DataInput:
             ax3.legend(loc='upper left')
             plt.show()
             plt.close()
-
-        # Choose the range that 99.9% data falls in
-        # lower_lat, upper_lat = np.percentile(df_output["pickup_latitude"], [0.05, 99.95])
-        # df_output = df_output[(df_output["pickup_latitude"] > lower_lat) & (df_output["pickup_latitude"] < upper_lat)]
 
         # Plot all trips' start latitude in a histogram
         if not SimMetaData.quiet_sim:
@@ -284,25 +276,6 @@ class DataInput:
 
         return df_output, slope
 
-
-# # Step 6: Calculate the Euclidean distance
-# print("-------------Euclidean Distance------------")
-# sampleDF["euclidean_distance"] = ""
-# sampleDF["pickup"] = list(zip(sampleDF["pickup_latitude"], sampleDF["pickup_longitude"]))
-# sampleDF["dropoff"] = list(zip(sampleDF["dropoff_latitude"], sampleDF["dropoff_longitude"]))
-# sampleDF["euclidean_distance"] = np.sqrt(np.sum(np.square(sampleDF["pickup"] - sampleDF["dropoff"])))
-# sampleDF["euclidean_distance"] = np.sqrt(np.sum(tuple(map(lambda i, j: np.square(i - j),
-#                                          sampleDF["pickup"], sampleDF["dropoff"]))))
-# sampleDF["euclidean_distance"] = np.sqrt((np.square(sampleDF["pickup_latitude"] - sampleDF["dropoff_latitude"]) +
-#                                          np.square(sampleDF["pickup_longitude"] - sampleDF["dropoff_longitude"])))
-# print(sampleDF[["euclidean_distance", "trip_distance"]])
-# # Step 7: Calculate the L1 Distance
-# # Step 8: Calculate the Lp Distance
-
-# To Do:
-# 1. Add a feature to NY dataset: matching every minute (now we are matching every trip) -> change matching algorithm
-# 2. Essay: compare matching instantaneously vs. waiting for some time
-# 3. Create a random dataset which has same columns as the NY one (another dataset)
 
 if __name__ == "__main__":
     data_input = DataInput(percentile_lat_lon=99.9)

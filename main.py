@@ -178,9 +178,8 @@ def run_simulation(
         "number_of_trips_to_charger_per_car_per_hr": avg_n_of_charging_trips,
         "avg_soc_over_time_over_cars": avg_soc,
         "service_level_percentage": service_level_percentage,
-        "matching_algorithm": f"Power of {d}",
-        # "matching_algorithm": matching_algo,
-        # "charging_algorithm": charging_algo,
+        "matching_algorithm": matching_algo,
+        "charging_algorithm": charging_algo,
         "percentage_workload_served": percentage_workload_served
     }, index=[0])
     if SimMetaData.save_results:
@@ -232,12 +231,10 @@ def run_simulation(
         ax2 = ax1.twinx()
         x = df_demand_curve_data["time"].to_numpy()
         soc = df_demand_curve_data["avg_soc"].to_numpy()
-        # stdev_soc = df_demand_curve_data["stdev_soc"].to_numpy()
         ax1.stackplot(x, np.transpose(df_demand_curve_data[[
             "driving_with_passenger", "driving_without_passenger", "idle", "driving_to_charger", "charging",
             "waiting_for_charger"]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r', 'y'])
         ax2.plot(x, soc, 'k', linewidth=3)
-        # ax2.fill_between(x, (soc - stdev_soc), (soc + stdev_soc), color='k', alpha=0.2)
         ax1.set_xlabel("Time (min)")
         ax1.set_ylabel("Number of Cars")
         ax1.set_ylim([0, n_cars])
@@ -293,7 +290,7 @@ if __name__ == "__main__":
                    d=1,
                    dataset_source=Dataset.NYTAXI.value,
                    start_datetime=datetime(2010, 12, 1, 0, 0, 0),
-                   end_datetime=datetime(2010, 12, 4, 0, 0, 0),
+                   end_datetime=datetime(2010, 12, 3, 0, 0, 0),
                    matching_algo=MatchingAlgo.POWER_OF_D.value,
                    charging_algo=ChargingAlgo.CHARGE_ALL_IDLE_CARS.value,
                    send_only_idle_cars=False,
