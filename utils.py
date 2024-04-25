@@ -1,7 +1,7 @@
 import numpy as np
 from haversine import haversine, haversine_vector, Unit
-from spatial_queueing.sim_metadata import SimMetaData
-from sim_metadata import DatasetParams
+# from spatial_queueing.sim_metadata import SimMetaData
+from sim_metadata import SimMetaData, DatasetParams
 import itertools
 
 

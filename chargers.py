@@ -14,10 +14,6 @@ class SuperCharger:
                  lon=None):
         self.idx = idx
         self.n_posts = n_posts
-        # set the charger locations to be close to most drop-off locations
-        # 1) divide the area -> output a list of lats % lons; 2) count the number of trips having drop-off locations
-        # within each lat & lon; 3) divide each number by the total number of trips to get the probability that the
-        # trip drop-off within each lat & lon; 4) sample the charger locations based on the probability distribution
         if random:
             lat, lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
                                                     lon_max=DatasetParams.longitude_range_max,
@@ -31,6 +27,7 @@ class SuperCharger:
         self.lon = lon
         self.occupancy = 0
         self.n_cars_waiting = 0
+        self.n_cars_driving_to_charger = 0
         self.state = ChargerState.AVAILABLE.value
         self.queue_list = []
         self.car_tracker = None
@@ -64,5 +61,6 @@ class SuperCharger:
             "lon": self.lon,
             "n_posts": self.n_posts,
             "state": self.state,
-            "n_available_posts": max(self.n_posts - len(self.queue_list), 0)
+            "n_available_posts": self.n_posts - self.occupancy,
+            "n_cars_driving_to_charger": self.n_cars_driving_to_charger
         }

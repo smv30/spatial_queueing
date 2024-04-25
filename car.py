@@ -119,6 +119,7 @@ class Car:
             self.lon = self.lon + (charger.lon - self.lon) * driving_distance_mi / total_distance_mi
             self.state = CarState.IDLE.value
             self.state_start_time = self.env.now
+            charger.n_cars_driving_to_charger -= 1
         # else if the car is waiting at the charger:
         #     update car state to idle
         #     use charger object with charger_idx to get queueing_list, then remove the car from the list
@@ -158,6 +159,7 @@ class Car:
         charger = self.list_chargers[charger_idx]
         charger_lat = charger.lat
         charger_lon = charger.lon
+        charger.n_cars_driving_to_charger += 1
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is not idle to be sent to charge")
 
@@ -201,6 +203,7 @@ class Car:
 
         # Call queueing_at_charger function
         charger.queueing_at_charger(self.id, end_soc)
+        charger.n_cars_driving_to_charger -= 1
 
     def car_charging(self, charger_idx, end_soc):
         self.state = CarState.CHARGING.value
