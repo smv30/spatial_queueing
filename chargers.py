@@ -1,4 +1,4 @@
-from sim_metadata import ChargerState, CarState, ChargingAlgoParams, DatasetParams
+from sim_metadata import ChargerState, CarState, ChargingAlgoParams, DatasetParams, Initialize
 from utils import sample_unif_points_on_sphere
 
 
@@ -9,22 +9,29 @@ class SuperCharger:
                  n_posts,
                  env,
                  df_arrival_sequence,
-                 random=False,
+                 initialize_chargers=Initialize.RANDOM_DESTINATION.value,
                  lat=None,
                  lon=None):
         self.idx = idx
         self.n_posts = n_posts
-        if random:
-            lat, lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-                                                    lon_max=DatasetParams.longitude_range_max,
-                                                    lat_min=DatasetParams.latitude_range_min,
-                                                    lat_max=DatasetParams.latitude_range_max)
-        else:
+        # set the charger locations to be close to most drop-off locations
+        # 1) divide the area -> output a list of lats % lons; 2) count the number of trips having drop-off locations
+        # within each lat & lon; 3) divide each number by the total number of trips to get the probability that the
+        # trip drop-off within each lat & lon; 4) sample the charger locations based on the probability distribution
+        if initialize_chargers == Initialize.RANDOM_UNIFORM.value:
+            self.lat, self.lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                                              lon_max=DatasetParams.longitude_range_max,
+                                                              lat_min=DatasetParams.latitude_range_min,
+                                                              lat_max=DatasetParams.latitude_range_max)
+        elif initialize_chargers == Initialize.RANDOM_DESTINATION.value:
             sample_trip = df_arrival_sequence.sample(1)
-            lon = sample_trip["dropoff_longitude"].values[0]
-            lat = sample_trip["dropoff_latitude"].values[0]
-        self.lat = lat
-        self.lon = lon
+            self.lon = sample_trip["dropoff_longitude"].values[0]
+            self.lat = sample_trip["dropoff_latitude"].values[0]
+        elif initialize_chargers == Initialize.EQUAL_TO_INPUT.value:
+            self.lat = lat
+            self.lon = lon
+        else:
+            raise ValueError("No such command for initialization chargers exists")
         self.occupancy = 0
         self.n_cars_waiting = 0
         self.n_cars_driving_to_charger = 0

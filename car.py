@@ -1,4 +1,5 @@
-from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams, ChargerState, DatasetParams
+from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams, ChargerState, DatasetParams, \
+    Initialize, DistFunc
 from chargers import SuperCharger
 from arrivals import Trip
 from utils import calc_dist_between_two_points, sample_unif_points_on_sphere
@@ -11,28 +12,27 @@ class Car:
                  env,
                  list_chargers,
                  df_arrival_sequence,
-                 random=False,
+                 initialize_car=Initialize.RANDOM_PICKUP.value,
                  lat=None,
                  lon=None,
-                 soc=None,
-                 state=None,
                  ):
-        if random:  # change uniform sample in sphere here
-            lat, lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-                                                    lon_max=DatasetParams.longitude_range_max,
-                                                    lat_min=DatasetParams.latitude_range_min,
-                                                    lat_max=DatasetParams.latitude_range_max)
-            soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
-            state = CarState.IDLE.value
-        else:
+        if initialize_car == Initialize.RANDOM_UNIFORM.value:
+            self.lat, self.lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                                              lon_max=DatasetParams.longitude_range_max,
+                                                              lat_min=DatasetParams.latitude_range_min,
+                                                              lat_max=DatasetParams.latitude_range_max)
+        elif initialize_car == Initialize.RANDOM_PICKUP.value:
             sample_trip = df_arrival_sequence.sample(1)
-            lon = sample_trip["pickup_longitude"].values[0]
-            lat = sample_trip["pickup_latitude"].values[0]
-            soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
-            state = CarState.IDLE.value
+            self.lon = sample_trip["pickup_longitude"].values[0]
+            self.lat = sample_trip["pickup_latitude"].values[0]
+        elif initialize_car == Initialize.EQUAL_TO_INPUT.value:
+            self.lat = lat
+            self.lon = lon
+        else:
+            raise ValueError("No such command for initialization cars exists")
+        soc = SimMetaData.random_seed_gen.uniform(0.7, 0.9)
+        state = CarState.IDLE.value
         self.id = car_id
-        self.lat = lat
-        self.lon = lon
         self.state = state
         self.soc = soc
         self.env = env
@@ -45,28 +45,42 @@ class Car:
         self.end_soc_post_charging = None
 
     def to_dict(self):
+        if self.charging_at_idx is not None:
+            charging_at_lat = self.list_chargers[self.charging_at_idx].lat
+            charging_at_lon = self.list_chargers[self.charging_at_idx].lon
+        else:
+            charging_at_lat = None
+            charging_at_lon = None
         return {
             "id": self.id,
             "lat": self.lat,
             "lon": self.lon,
             "soc": self.soc,
             "state": self.state,
-            "state_start_time": self.state_start_time
+            "state_start_time": self.state_start_time,
+            "charging_at_lat": charging_at_lat,
+            "charging_at_lon": charging_at_lon
         }
 
-    def run_trip(self, trip, dist_correction_factor):
+    def run_trip(self, trip, dist_correction_factor, dist_func):
         # If the car is driving to charger or charging or waiting for charger, interrupt that process
         if self.state in (
                 CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
-            self.interrupt_charging(self.charging_at_idx, self.end_soc_post_charging)
+            self.interrupt_charging(
+                charger_idx=self.charging_at_idx,
+                end_soc=self.end_soc_post_charging,
+                dist_correction_factor=dist_correction_factor,
+                dist_func=dist_func
+            )
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is currently finishing a trip and cannot be matched")
-        trip.state = TripState.MATCHED
+        trip.state = TripState.MATCHED.value
         pickup_dist_mi = calc_dist_between_two_points(start_lat=self.lat,
                                                       start_lon=self.lon,
                                                       end_lat=trip.start_lat,
                                                       end_lon=trip.start_lon,
-                                                      dist_correction_factor=dist_correction_factor)
+                                                      dist_correction_factor=dist_correction_factor,
+                                                      dist_func=dist_func)
         pickup_time_min = pickup_dist_mi / SimMetaData.avg_vel_mph * 60
         trip.pickup_time_min = pickup_time_min
         self.state = CarState.DRIVING_WITHOUT_PASSENGER.value
@@ -97,7 +111,7 @@ class Car:
         if self.soc < 0:
             raise ValueError("SOC cannot be less than 0")
 
-    def interrupt_charging(self, charger_idx, end_soc):
+    def interrupt_charging(self, charger_idx, end_soc, dist_correction_factor, dist_func):
         charger = self.list_chargers[charger_idx]
         # interrupt the process
         if not SimMetaData.quiet_sim:
@@ -114,11 +128,22 @@ class Car:
             delta_soc = consumption_kwh / SimMetaData.pack_size_kwh
             self.soc = self.soc - delta_soc
             driving_distance_mi = time_spent_in_this_state_min * SimMetaData.avg_vel_mph / 60
-            total_distance_mi = max(0.01, calc_dist_between_two_points(self.lat, self.lon, charger.lat, charger.lon))
+            total_distance_mi = max(
+                0.01,
+                calc_dist_between_two_points(
+                    start_lat=self.lat,
+                    start_lon=self.lon,
+                    end_lat=charger.lat,
+                    end_lon=charger.lon,
+                    dist_correction_factor=dist_correction_factor,
+                    dist_func=dist_func
+                )
+            )
             self.lat = self.lat + (charger.lat - self.lat) * driving_distance_mi / total_distance_mi
             self.lon = self.lon + (charger.lon - self.lon) * driving_distance_mi / total_distance_mi
             self.state = CarState.IDLE.value
             self.state_start_time = self.env.now
+            self.charging_at_idx = None
             charger.n_cars_driving_to_charger -= 1
         # else if the car is waiting at the charger:
         #     update car state to idle
@@ -126,6 +151,7 @@ class Car:
         elif self.state == CarState.WAITING_FOR_CHARGER.value:
             self.state = CarState.IDLE.value
             self.state_start_time = self.env.now
+            self.charging_at_idx = None
             if [self.id, end_soc] in charger.queue_list:
                 charger.queue_list.remove([self.id, end_soc])
             else:
@@ -146,13 +172,14 @@ class Car:
             self.state_start_time = self.env.now
             charger.state = ChargerState.AVAILABLE.value
             charger.queueing_at_charger(None, None)
+            self.charging_at_idx = None
         else:
             raise ValueError("Charging process is not going on to be interrupted")
 
     # Logic: drive_to_charger() call queueing_at_charger()
     #        -> queueing_at_charger() call car_charging()
     #        -> car_charging() call queueing_at_charger()
-    def drive_to_charger(self, end_soc, charger_idx, dist_correction_factor):
+    def drive_to_charger(self, end_soc, charger_idx, dist_correction_factor, dist_func):
         # Change the car state to DRIVING_TO_CHARGER
         self.charging_at_idx = charger_idx
         self.end_soc_post_charging = end_soc
@@ -168,7 +195,8 @@ class Car:
                                                               start_lon=self.lon,
                                                               end_lat=charger_lat,
                                                               end_lon=charger_lon,
-                                                              dist_correction_factor=dist_correction_factor)
+                                                              dist_correction_factor=dist_correction_factor,
+                                                              dist_func=dist_func)
         else:
             dist_to_charger_mi = 0.001
 
@@ -254,15 +282,14 @@ if __name__ == "__main__":
     car = Car(car_id=0,
               lat=0,
               lon=1,
-              state=CarState.IDLE.value,
-              soc=0.5,
               env=env,
-              list_chargers=list_chargers
+              list_chargers=list_chargers,
+              df_arrival_sequence=None  # Update this if you want to test this file separately
               )
     try:
         car.prev_charging_process = env.process(car.run_charge(1, 1))
     except simpy.Interrupt:
         print("interrupted")
     trip = Trip(env, 0, 1, TripState.WAITING.value)
-    env.process(car.run_trip(trip))
+    env.process(car.run_trip(trip, 1, DistFunc.MANHATTAN.value))
     env.run()

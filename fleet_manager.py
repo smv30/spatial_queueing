@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from arrivals import Trip
 from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState, Dataset, \
-    MatchingAlgoParams, ChargingAlgo
+    AdaptivePowerOfDParams, ChargingAlgo, AvailableCarsForMatching, PickupThresholdType, PickupThresholdMatchingParams
 from utils import calc_dist_between_two_points
 from data_logging import DataLogging
 
@@ -10,7 +10,6 @@ from data_logging import DataLogging
 # FleetManager run the functions every minute
 class FleetManager:
     def __init__(self,
-                 arrival_rate_pmin,
                  env,
                  car_tracker,
                  n_cars,
@@ -18,10 +17,12 @@ class FleetManager:
                  list_chargers,
                  trip_data,
                  matching_algo,
+                 available_cars_for_matching,
                  charging_algo,
                  dist_correction_factor,
+                 pickup_threshold_type,
+                 dist_func,
                  d):
-        self.arrival_rate_pmin = arrival_rate_pmin
         self.env = env
         self.n_arrivals = 0
         self.car_tracker = car_tracker
@@ -32,12 +33,15 @@ class FleetManager:
         self.list_trips = []
         self.trip_data = trip_data
         self.matching_algo = matching_algo
+        self.available_cars_for_matching = available_cars_for_matching
         self.charging_algo = charging_algo
         self.dist_correction_factor = dist_correction_factor
         self.df_list_charger = pd.DataFrame([
             self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
         ])
         self.d = d
+        self.dist_func = dist_func
+        self.pickup_threshold_type = pickup_threshold_type
 
     def match_trips(self):
         time_to_go_for_data_logging = 0
@@ -76,7 +80,12 @@ class FleetManager:
                         closest_available_charger_idx = self.closest_available_charger(car, list_available_chargers)
                         if closest_available_charger_idx is not None:
                             car.prev_charging_process = self.env.process(
-                                car.drive_to_charger(1, closest_available_charger_idx, self.dist_correction_factor))
+                                car.drive_to_charger(
+                                    end_soc=1,
+                                    charger_idx=closest_available_charger_idx,
+                                    dist_correction_factor=self.dist_correction_factor,
+                                    dist_func=self.dist_func
+                                ))
                             list_posts_available[closest_available_charger_idx] -= 1
                             if list_posts_available[closest_available_charger_idx] <= 0:
                                 list_available_chargers = list_available_chargers[
@@ -104,7 +113,7 @@ class FleetManager:
 
             if car_id is not None:
                 matched_car = self.car_tracker[car_id]
-                self.env.process(matched_car.run_trip(trip, self.dist_correction_factor))
+                self.env.process(matched_car.run_trip(trip, self.dist_correction_factor, self.dist_func))
                 n_served_trips_before_updating_d += 1
             self.env.process(trip.update_trip_state(renege_time_min=self.renege_time_min))
 
@@ -112,14 +121,19 @@ class FleetManager:
             self.n_arrivals = self.n_arrivals + 1
             counter += 1
 
-            if MatchingAlgoParams.adaptive_d:
+            if AdaptivePowerOfDParams.adaptive_d is True:
                 n_cars_idle_full_soc = len(df_car_tracker[(df_car_tracker["state"] == CarState.IDLE.value) &
                                                           (df_car_tracker["soc"] >= 0.95)])
-                n_cars_idle_full_soc_average = (n_cars_idle_full_soc_average * (counter % MatchingAlgoParams.n_trips_before_updating_d)
-                                                + n_cars_idle_full_soc) / (counter % MatchingAlgoParams.n_trips_before_updating_d + 1)
-                if counter % MatchingAlgoParams.n_trips_before_updating_d == 0:
-                    if n_served_trips_before_updating_d < 0.95 * MatchingAlgoParams.n_trips_before_updating_d:
-                        if n_cars_idle_full_soc_average > MatchingAlgoParams.threshold_percent_of_cars_idling * self.n_cars:
+                n_cars_idle_full_soc_average = (
+                        (n_cars_idle_full_soc_average * (counter % AdaptivePowerOfDParams.n_trips_before_updating_d)
+                         + n_cars_idle_full_soc) / (counter % AdaptivePowerOfDParams.n_trips_before_updating_d + 1)
+                )
+                if counter % AdaptivePowerOfDParams.n_trips_before_updating_d == 0:
+                    if n_served_trips_before_updating_d < 0.95 * AdaptivePowerOfDParams.n_trips_before_updating_d:
+                        if (
+                                n_cars_idle_full_soc_average >
+                                AdaptivePowerOfDParams.threshold_percent_of_cars_idling * self.n_cars
+                        ):
                             self.d += 1
                         elif n_cars_idle_full_soc_average == 0:
                             if self.d > 1:
@@ -129,7 +143,11 @@ class FleetManager:
 
             if self.charging_algo == ChargingAlgo.CHARGE_ALL_IDLE_CARS_AT_NIGHT.value:
                 curr_time_in_the_day_min = curr_time_min % (24 * 60)
-                if (ChargingAlgoParams.start_of_the_night * 60) <= curr_time_in_the_day_min <= (ChargingAlgoParams.end_of_the_night * 60):
+                if (
+                        (ChargingAlgoParams.start_of_the_night * 60)
+                        <= curr_time_in_the_day_min
+                        <= (ChargingAlgoParams.end_of_the_night * 60)
+                ):
                     charge_threshold = 0.95
                 else:
                     charge_threshold = 0.2
@@ -171,10 +189,11 @@ class FleetManager:
                 else:
                     time_to_go_for_data_logging = time_to_go_for_data_logging - inter_arrival_time_min
 
-    def matching_algorithms(self, trip, df_car_tracker):
+    def matching_algorithms(self, trip, df_car_tracker, drive_to_charger_update=True):
         idle_cars_mask = (df_car_tracker["state"] == CarState.IDLE.value)
         charging_mask = (df_car_tracker["state"] == CarState.CHARGING.value)
         waiting_for_charger_mask = (df_car_tracker["state"] == CarState.WAITING_FOR_CHARGER.value)
+        driving_to_charger_mask = (df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value)
         df_car_tracker["curr_soc"] = np.copy(df_car_tracker["soc"])
         df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "curr_soc"] = (
                 (self.env.now - df_car_tracker.loc[
@@ -182,12 +201,48 @@ class FleetManager:
                 / 60 * SimMetaData.charge_rate_kw / SimMetaData.pack_size_kwh
                 + df_car_tracker.loc[df_car_tracker["state"] == CarState.CHARGING.value, "soc"]
         )
+        df_car_tracker.loc[df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value, "curr_soc"] = \
+            (
+                    df_car_tracker.loc[df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value, "soc"]
+                    - (self.env.now
+                       - df_car_tracker.loc[
+                           df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value, "state_start_time"]
+                       )
+                    / 60 * SimMetaData.avg_vel_mph * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh
+            )
+        df_car_tracker["curr_lat"] = np.copy(df_car_tracker["lat"])
+        df_car_tracker["curr_lon"] = np.copy(df_car_tracker["lon"])
+        if (drive_to_charger_update is True
+                and self.available_cars_for_matching == AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value
+                and sum(df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value) > 1
+        ):
+            filtered_car_tracker = df_car_tracker.loc[df_car_tracker["state"] == CarState.DRIVING_TO_CHARGER.value]
+            dist_to_charger = calc_dist_between_two_points(
+                start_lat=filtered_car_tracker["lat"],
+                start_lon=filtered_car_tracker["lon"],
+                end_lat=filtered_car_tracker["charging_at_lat"],
+                end_lon=filtered_car_tracker["charging_at_lon"],
+                dist_correction_factor=self.dist_correction_factor,
+                dist_func=self.dist_func
+            )
+            filtered_car_tracker = filtered_car_tracker.loc[dist_to_charger > 0]
+            dist_traveled = (self.env.now - filtered_car_tracker["state_start_time"]) / 60 * SimMetaData.avg_vel_mph
+
+            filtered_car_tracker["curr_lat"] = (filtered_car_tracker["lat"] +
+                                                (filtered_car_tracker["charging_at_lat"] - filtered_car_tracker["lat"])
+                                                * dist_traveled / dist_to_charger[dist_to_charger > 0]
+                                                )
+            filtered_car_tracker["curr_lon"] = (filtered_car_tracker["lon"] +
+                                                (filtered_car_tracker["charging_at_lon"] - filtered_car_tracker["lon"])
+                                                * dist_traveled / dist_to_charger[dist_to_charger > 0]
+                                                )
         df_car_tracker["pickup_time_min"] = (
                 calc_dist_between_two_points(start_lat=df_car_tracker["lat"],
                                              start_lon=df_car_tracker["lon"],
                                              end_lat=trip.start_lat,
                                              end_lon=trip.start_lon,
-                                             dist_correction_factor=self.dist_correction_factor)
+                                             dist_correction_factor=self.dist_correction_factor,
+                                             dist_func=self.dist_func)
                 / SimMetaData.avg_vel_mph
                 * 60
         )
@@ -201,7 +256,8 @@ class FleetManager:
             start_lon=trip.end_lon,
             end_lat=self.df_list_charger["lat"],
             end_lon=self.df_list_charger["lon"],
-            dist_correction_factor=self.dist_correction_factor
+            dist_correction_factor=self.dist_correction_factor,
+            dist_func=self.dist_func
         )) * SimMetaData.consumption_kwhpmi / SimMetaData.pack_size_kwh
                                              * ChargingAlgoParams.safety_factor_to_reach_closest_charger)
         enough_soc_mask = (
@@ -214,13 +270,19 @@ class FleetManager:
             ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False]))
 
         if self.matching_algo == MatchingAlgo.POWER_OF_D.value:
-            if MatchingAlgoParams.send_only_idle_cars is True:
+            if self.available_cars_for_matching == AvailableCarsForMatching.ONLY_IDLE.value:
                 cars_of_interest = df_car_tracker[idle_cars_mask].sort_values(by=["pickup_time_min", "curr_soc"],
                                                                               ascending=[True, False])
-            else:
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_AND_CHARGING.value:
                 cars_of_interest = df_car_tracker[
                     (idle_cars_mask | charging_mask | waiting_for_charger_mask)
                 ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value:
+                cars_of_interest = df_car_tracker[
+                    (idle_cars_mask | charging_mask | waiting_for_charger_mask | driving_to_charger_mask)
+                ].sort_values(by=["pickup_time_min", "curr_soc"], ascending=[True, False])
+            else:
+                raise ValueError("Such an input for the available cars for matching is invalid")
             if len(cars_of_interest) == 0:
                 return None, None, n_available_cars
             d_closest_cars = cars_of_interest.iloc[0:self.d]
@@ -229,28 +291,107 @@ class FleetManager:
                     - possible_car_to_dispatch["delta_soc"]
                     - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
             ):
-                return int(possible_car_to_dispatch["id"]), possible_car_to_dispatch["pickup_time_min"], n_available_cars
-            else:
-                return None, None, n_available_cars
+                if self.pickup_threshold_type == PickupThresholdType.PERCENT_THRESHOLD.value:
+                    if (
+                            possible_car_to_dispatch["pickup_time_min"]
+                            <= PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min
+                    ):
+                        return (int(possible_car_to_dispatch["id"]),
+                                possible_car_to_dispatch["pickup_time_min"],
+                                n_available_cars
+                                )
+                elif self.pickup_threshold_type == PickupThresholdType.CONSTANT_THRESHOLD.value:
+                    if possible_car_to_dispatch["pickup_time_min"] <= PickupThresholdMatchingParams.threshold_min:
+                        return (
+                            int(possible_car_to_dispatch["id"]),
+                            possible_car_to_dispatch["pickup_time_min"],
+                            n_available_cars
+                        )
+                elif self.pickup_threshold_type == PickupThresholdType.BOTH_PERCENT_AND_CONSTANT.value:
+                    if (
+                            possible_car_to_dispatch["pickup_time_min"]
+                            <= min(PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min,
+                                   PickupThresholdMatchingParams.threshold_min
+                                   )
+                    ):
+                        return (
+                            int(possible_car_to_dispatch["id"]),
+                            possible_car_to_dispatch["pickup_time_min"],
+                            n_available_cars
+                        )
+                elif self.pickup_threshold_type == PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value:
+                    if (
+                            possible_car_to_dispatch["pickup_time_min"]
+                            <= max(PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min,
+                                   PickupThresholdMatchingParams.threshold_min
+                                   )
+                    ):
+                        return (
+                            int(possible_car_to_dispatch["id"]),
+                            possible_car_to_dispatch["pickup_time_min"],
+                            n_available_cars
+                        )
+                elif self.pickup_threshold_type == PickupThresholdType.NO_THRESHOLD.value:
+                    return (
+                        int(possible_car_to_dispatch["id"]),
+                        possible_car_to_dispatch["pickup_time_min"],
+                        n_available_cars
+                    )
+                else:
+                    raise ValueError("No such thresholding scheme exists")
+            return None, None, n_available_cars
         elif self.matching_algo == MatchingAlgo.CLOSEST_AVAILABLE_DISPATCH.value:
             enough_soc_mask = (
                     df_car_tracker["curr_soc"]
                     - df_car_tracker["delta_soc"]
                     - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
             )
-            if MatchingAlgoParams.send_only_idle_cars is True:
+            if self.available_cars_for_matching == AvailableCarsForMatching.ONLY_IDLE.value:
                 available_cars = df_car_tracker[
                     idle_cars_mask & enough_soc_mask
                     ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
-            else:
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_AND_CHARGING.value:
                 available_cars = df_car_tracker[
                     (idle_cars_mask | charging_mask | waiting_for_charger_mask) & enough_soc_mask
                     ].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value:
+                available_cars = df_car_tracker[
+                    (idle_cars_mask | charging_mask | waiting_for_charger_mask | driving_to_charger_mask)
+                    & enough_soc_mask].sort_values(by=["pickup_time_min", "soc"], ascending=[True, False])
+            else:
+                raise ValueError("Such an input for the available cars for matching is invalid")
             if len(available_cars) > 0:
                 car_to_dispatch = available_cars.iloc[0]
-                return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
-            else:
-                return None, None, n_available_cars
+                if self.pickup_threshold_type == PickupThresholdType.PERCENT_THRESHOLD.value:
+                    if (
+                            car_to_dispatch["pickup_time_min"]
+                            <= PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min
+                    ):
+                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                elif self.pickup_threshold_type == PickupThresholdType.CONSTANT_THRESHOLD.value:
+                    if car_to_dispatch["pickup_time_min"] <= PickupThresholdMatchingParams.threshold_min:
+                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                elif self.pickup_threshold_type == PickupThresholdType.BOTH_PERCENT_AND_CONSTANT.value:
+                    if (
+                            car_to_dispatch["pickup_time_min"]
+                            <= min(PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min,
+                                   PickupThresholdMatchingParams.threshold_min
+                                   )
+                    ):
+                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                elif self.pickup_threshold_type == PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value:
+                    if (
+                            car_to_dispatch["pickup_time_min"]
+                            <= max(PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min,
+                                   PickupThresholdMatchingParams.threshold_min
+                                   )
+                    ):
+                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                elif self.pickup_threshold_type == PickupThresholdType.NO_THRESHOLD.value:
+                    return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                else:
+                    raise ValueError("No such thresholding scheme exists")
+            return None, None, n_available_cars
         else:
             raise ValueError(f"Matching algorithm {self.matching_algo} does not exist")
 
@@ -262,7 +403,8 @@ class FleetManager:
             start_lon=car.lon,
             end_lat=list_available_chargers["lat"],
             end_lon=list_available_chargers["lon"],
-            dist_correction_factor=self.dist_correction_factor
+            dist_correction_factor=self.dist_correction_factor,
+            dist_func=self.dist_func
         )
         argmin_idx = np.argmin(dist_to_superchargers)
         closest_supercharger_idx = list_available_chargers["idx"].iloc[argmin_idx]

@@ -6,12 +6,13 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import os.path
-from sim_metadata import SimMetaData, DatasetParams
+from sim_metadata import SimMetaData, DatasetParams, Dataset, DistFunc
 from utils import sample_unif_points_on_sphere
 import warnings
 from utils import calc_dist_between_two_points
-import datetime
-from datetime import datetime
+import geopandas as gpd
+from datetime import datetime, timedelta
+
 
 class DataInput:
     def __init__(self,
@@ -85,7 +86,7 @@ class DataInput:
                                                          start_lon=start_lon,
                                                          end_lat=end_lat,
                                                          end_lon=end_lon) / SimMetaData.avg_vel_mph * 60
-            trip_time_datetime = datetime.timedelta(minutes=trip_time_min)
+            trip_time_datetime = timedelta(minutes=trip_time_min)
             dropoff_datetime = curr_time_datetime + trip_time_datetime
             trip_distance_mi = calc_dist_between_two_points(start_lat=start_lat, start_lon=start_lon,
                                                             end_lat=end_lat, end_lon=end_lon)
@@ -101,7 +102,7 @@ class DataInput:
             })
             df_trips = pd.concat([df_trips, df_this_trip], ignore_index=True)
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / arrival_rate_pmin)
-            inter_arrival_time_datetime = datetime.timedelta(minutes=inter_arrival_time_min)
+            inter_arrival_time_datetime = timedelta(minutes=inter_arrival_time_min)
             curr_time_datetime = curr_time_datetime + inter_arrival_time_datetime
             time_passed = (curr_time_datetime - start_datetime).total_seconds() / 60.0
         if not os.path.isdir(data_dir):
@@ -114,28 +115,167 @@ class DataInput:
         dist_correction_factor = 1
         return df_trips, dist_correction_factor
 
-    def ny_taxi_dataset(self, dataset_path, start_datetime, end_datetime, percent_of_trips):
+    def real_life_dataset(self,
+                          dataset_source,
+                          dataset_path,
+                          start_datetime,
+                          end_datetime,
+                          percent_of_trips,
+                          dist_func,
+                          centroid=False):
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        sample_data_path = os.path.join(dir_path, "spatial_queueing/sampledata.csv")
+        sample_data_path = os.path.join(dir_path, "sampledata.csv")
         # Step 1: read the dataset and get useful columns
         if not os.path.isfile("sampledata.csv") or SimMetaData.test is False:
-            entire_df = pd.read_parquet(
-                dataset_path,
-                engine='fastparquet')
-            df_filtered = entire_df[
-                ["pickup_datetime", "dropoff_datetime", "trip_distance", "pickup_longitude", "pickup_latitude",
-                 "dropoff_longitude", "dropoff_latitude"]
-            ]
+            if dataset_source == Dataset.NYTAXI.value:
 
-            # Step 2: filter out the trips with invalid time and location, and then sample the dataset
-            # fetch all rows that are valid between a specific time range
-            df_filtered.loc[:, "pickup_datetime"] = pd.to_datetime(df_filtered['pickup_datetime'],
-                                                                   format='%Y-%m-%d %H:%M:%S')
-            df_filtered.loc[:, "dropoff_datetime"] = pd.to_datetime(df_filtered['dropoff_datetime'],
-                                                                    format='%Y-%m-%d %H:%M:%S')
-            df_filtered = df_filtered[
-                (df_filtered["pickup_datetime"] >= start_datetime) &
-                (df_filtered["pickup_datetime"] < end_datetime)]
+                entire_df = pd.read_parquet(
+                    dataset_path,
+                    engine='fastparquet')
+
+                df_filtered = entire_df[["tpep_pickup_datetime",
+                                         "tpep_dropoff_datetime",
+                                         "PULocationID",
+                                         "DOLocationID",
+                                         "trip_distance"]]
+
+                df_filtered = df_filtered.rename(
+                    columns={"tpep_pickup_datetime": "pickup_datetime",
+                             "tpep_dropoff_datetime": "dropoff_datetime",
+                             "Trip Miles": "trip_distance"
+                             }
+                )
+
+                # fetch all rows that are valid between a specific time range
+                df_filtered.loc[:, "pickup_datetime"] = pd.to_datetime(df_filtered["pickup_datetime"],
+                                                                       format="%Y-%m-%d %H:%M:%S")
+                df_filtered.loc[:, "dropoff_datetime"] = pd.to_datetime(df_filtered["dropoff_datetime"],
+                                                                        format="%Y-%m-%d %H:%M:%S")
+                df_filtered = df_filtered[
+                    (df_filtered["pickup_datetime"] >= start_datetime) &
+                    (df_filtered["pickup_datetime"] < end_datetime)]
+                if df_filtered.empty:
+                    raise ValueError("The filtered dataset is empty. Try adjusting state and end dates")
+
+                # sample a certain percent of data
+                sample_size = int(len(df_filtered) * percent_of_trips)
+                df_filtered = df_filtered.sample(sample_size)
+
+                # Add pickup and dropoff latitudes and longitudes from the shapefile and zones
+                shapefile = gpd.read_file("taxi_zones/taxi_zones.shp")
+
+                shapefile["PULocationID"] = shapefile["LocationID"]
+                shapefile["DOLocationID"] = shapefile["LocationID"]
+
+                if centroid is True:  # Handling the case of centroid separately to optimize the code for this case
+                    shapefile["pickup_longitude"] = shapefile.centroid.to_crs(4326).x
+                    shapefile["pickup_latitude"] = shapefile.centroid.to_crs(4326).y
+                    shapefile["dropoff_longitude"] = shapefile.centroid.to_crs(4326).x
+                    shapefile["dropoff_latitude"] = shapefile.centroid.to_crs(4326).y
+                    shapefile["PULocationID"] = shapefile["LocationID"]
+                    shapefile["DOLocationID"] = shapefile["LocationID"]
+                    df_filtered = df_filtered.merge(
+                        shapefile[["PULocationID", "pickup_longitude", "pickup_latitude"]],
+                        on="PULocationID",
+                        how="inner"
+                    )
+                    df_filtered = df_filtered.merge(
+                        shapefile[["DOLocationID", "dropoff_longitude", "dropoff_latitude"]],
+                        on="DOLocationID",
+                        how="inner"
+                    )
+                else:  # Randomly selecting one point in the polygon
+                    df_filtered = shapefile[["PULocationID", "geometry"]].merge(df_filtered,
+                                                                                on="PULocationID",
+                                                                                how="inner"
+                                                                                )
+                    sample_pickup = df_filtered.sample_points(1).to_crs(4326)
+                    df_filtered["pickup_longitude"] = sample_pickup.x
+                    df_filtered["pickup_latitude"] = sample_pickup.y
+
+                    df_filtered = df_filtered.rename(columns={"geometry": "geometry_x"})
+                    df_filtered = shapefile[["DOLocationID", "geometry"]].merge(df_filtered,
+                                                                                on="DOLocationID",
+                                                                                how="inner"
+                                                                                )
+                    sample_dropoff = df_filtered.sample_points(1).to_crs(4326)
+                    df_filtered["dropoff_longitude"] = sample_dropoff.x
+                    df_filtered["dropoff_latitude"] = sample_dropoff.y
+                    df_filtered = df_filtered[["pickup_datetime",
+                                               "dropoff_datetime",
+                                               "trip_distance",
+                                               "pickup_longitude",
+                                               "pickup_latitude",
+                                               "dropoff_longitude",
+                                               "dropoff_latitude"]]
+
+            elif dataset_source == Dataset.CHICAGO.value:
+                entire_df = pd.read_csv(dataset_path)
+                df_filtered = entire_df[
+                    ["Trip Start Timestamp", "Trip End Timestamp", "Trip Miles", "Pickup Centroid Longitude",
+                     "Pickup Centroid Latitude", "Dropoff Centroid Longitude", "Dropoff Centroid Latitude",
+                     "Trip Seconds"]
+                ]
+
+                df_filtered = df_filtered.rename(
+                    columns={"Trip Start Timestamp": "pickup_datetime",
+                             "Trip End Timestamp": "dropoff_datetime",
+                             "Trip Miles": "trip_distance",
+                             "Pickup Centroid Longitude": "pickup_longitude",
+                             "Pickup Centroid Latitude": "pickup_latitude",
+                             "Dropoff Centroid Longitude": "dropoff_longitude",
+                             "Dropoff Centroid Latitude": "dropoff_latitude"
+                             }
+                )
+                # fetch all rows that are valid between a specific time range
+                df_filtered.loc[:, "pickup_datetime"] = pd.to_datetime(df_filtered["pickup_datetime"],
+                                                                       format="%m/%d/%Y %I:%M:%S %p")
+                df_filtered.loc[:, "dropoff_datetime"] = pd.to_datetime(df_filtered["dropoff_datetime"],
+                                                                        format="%m/%d/%Y %I:%M:%S %p")
+                df_filtered = df_filtered[
+                    (df_filtered["pickup_datetime"] >= start_datetime) &
+                    (df_filtered["pickup_datetime"] < end_datetime)]
+                if df_filtered.empty:
+                    raise ValueError("The filtered dataset is empty. Try adjusting state and end dates")
+
+                # adding a random amount of minutes as pickups are rounded off to the nearest 15 mins in the dataset
+                df_filtered.loc[:, "pickup_datetime"] += pd.to_timedelta(
+                    np.random.randint(0, 15 * 60, len(df_filtered)), unit="m"
+                ) / 60
+
+                df_filtered.loc[:, "dropoff_datetime"] = (
+                        df_filtered.loc[:, "pickup_datetime"]
+                        + pd.to_timedelta(df_filtered.loc[:, "Trip Seconds"], unit="s")
+                )
+
+                # sample a certain percent of data
+                sample_size = int(len(df_filtered) * percent_of_trips)
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index")
+            elif dataset_source == Dataset.OLD_NYTAXI.value:
+                entire_df = pd.read_parquet(
+                    dataset_path,
+                    engine='fastparquet')
+                df_filtered = entire_df[
+                    ["pickup_datetime", "dropoff_datetime", "trip_distance", "pickup_longitude", "pickup_latitude",
+                     "dropoff_longitude", "dropoff_latitude"]
+                ]
+                # Step 2: filter out the trips with invalid time and location, and then sample the dataset
+                # fetch all rows that are valid between a specific time range
+                df_filtered.loc[:, "pickup_datetime"] = pd.to_datetime(df_filtered['pickup_datetime'],
+                                                                       format='%Y-%m-%d %H:%M:%S')
+                df_filtered.loc[:, "dropoff_datetime"] = pd.to_datetime(df_filtered['dropoff_datetime'],
+                                                                        format='%Y-%m-%d %H:%M:%S')
+                df_filtered = df_filtered[
+                    (df_filtered["pickup_datetime"] >= start_datetime) &
+                    (df_filtered["pickup_datetime"] < end_datetime)]
+                if df_filtered.empty:
+                    raise ValueError("The filtered dataset is empty. Try adjusting state and end dates")
+
+                # sample a certain percent of data
+                sample_size = int(len(df_filtered) * percent_of_trips)
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index")
+            else:
+                raise ValueError("No such dataset origin exists")
 
             # fetch all rows with valid latitude and longitude
             lower_percentile_lat_lon = (100 - self.percentile_lat_lon) / 2
@@ -179,17 +319,13 @@ class DataInput:
                 (df_filtered["dropoff_latitude"] <= DatasetParams.latitude_range_max)
                 ]
 
-            # sample a certain percent of data
-            sample_size = int(len(df_output) * percent_of_trips)
-            df_output = df_output.sample(sample_size)
-            df_output.sort_values(by='pickup_datetime', inplace=True)
+            df_output = df_output.sort_values(by='pickup_datetime')
             df_output.reset_index(drop=True)
 
             # Step 3: save the dataframe into a CSV file or read the dataframe from a CSV file
             df_output.to_csv(sample_data_path)
         else:
             df_output = pd.read_csv(sample_data_path)
-
         df_output["pickup_datetime"] = pd.to_datetime(df_output["pickup_datetime"])
         df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
         df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output["pickup_datetime"]).dt.total_seconds() / 60.0
@@ -228,53 +364,59 @@ class DataInput:
             plt.show()
             plt.close()
 
-        # Step 4: Calculate the Haversine distance
-        df_output["haversine_distance"] = ""
-        df_output["pickup"] = list(zip(df_output["pickup_latitude"], df_output["pickup_longitude"]))
-        df_output["dropoff"] = list(zip(df_output["dropoff_latitude"], df_output["dropoff_longitude"]))
-        df_output["haversine_distance"] = haversine_vector(list(df_output["pickup"]),
-                                                           list(df_output["dropoff"]),
-                                                           unit=Unit.MILES)  # in miles
-        if not SimMetaData.quiet_sim:
-            print("-------------Haversine Distance------------")
-            print(df_output[["haversine_distance", "trip_distance"]])
+        # Step 4: Calculate the Haversine distance correction factor
+        if dist_func == DistFunc.MANHATTAN.value:
+            dist_correction_factor = 1
+            return df_output, dist_correction_factor
+        elif dist_func == DistFunc.HAVERSINE.value:
+            df_output["haversine_distance"] = ""
+            df_output["pickup"] = list(zip(df_output["pickup_latitude"], df_output["pickup_longitude"]))
+            df_output["dropoff"] = list(zip(df_output["dropoff_latitude"], df_output["dropoff_longitude"]))
+            df_output["haversine_distance"] = haversine_vector(list(df_output["pickup"]),
+                                                               list(df_output["dropoff"]),
+                                                               unit=Unit.MILES)  # in miles
+            if not SimMetaData.quiet_sim:
+                print("-------------Haversine Distance------------")
+                print(df_output[["haversine_distance", "trip_distance"]])
 
-        # Step 5: Linear Regression for Haversine distance
-        #         -> Plot, R-Squared value, linear regression function, Mean Squared Error
-        sampleDF_80_percent = df_output.sample(int(len(df_output) * 0.8))
-        x = sampleDF_80_percent["haversine_distance"].values.reshape(-1, 1)  # "values" converts it into a numpy array
-        y = sampleDF_80_percent["trip_distance"].values.reshape(-1,
-                                                                1)  # -1 means calculate the dimension of rows, but have 1 column
-        linear_regressor = LinearRegression(fit_intercept=False)  # create object for the class
-        linear_regressor.fit(x, y)  # perform linear regression
-        r_squared = linear_regressor.score(x, y)  # calculate R-Squared of regression model
-        if not SimMetaData.quiet_sim:
-            print(f"R-Squared value: {r_squared}")
+            # Step 5: Linear Regression for Haversine distance
+            #         -> Plot, R-Squared value, linear regression function, Mean Squared Error
+            sampleDF_80_percent = df_output.sample(int(len(df_output) * 0.8))
+            x = sampleDF_80_percent["haversine_distance"].values.reshape(-1, 1)  # "values" converts it into a numpy array
+            y = sampleDF_80_percent["trip_distance"].values.reshape(-1,
+                                                                    1)  # -1 means calculate the dimension of rows, but have 1 column
+            linear_regressor = LinearRegression(fit_intercept=False)  # create object for the class
+            linear_regressor.fit(x, y)  # perform linear regression
+            r_squared = linear_regressor.score(x, y)  # calculate R-Squared of regression model
+            if not SimMetaData.quiet_sim:
+                print(f"R-Squared value: {r_squared}")
 
-        y_pred = linear_regressor.predict(x)  # make predictions
-        if not SimMetaData.quiet_sim:
-            plt.scatter(x, y)
-            plt.plot(x, y_pred, color='red')
-            plt.xlabel("Haversine Distance")
-            plt.ylabel("Trip Distance")
-            plt.show()
-            plt.close()
+            y_pred = linear_regressor.predict(x)  # make predictions
+            if not SimMetaData.quiet_sim:
+                plt.scatter(x, y)
+                plt.plot(x, y_pred, color='red')
+                plt.xlabel("Haversine Distance")
+                plt.ylabel("Trip Distance")
+                plt.show()
+                plt.close()
 
-        # get the linear regression function with slope and intercept
-        slope = linear_regressor.coef_[0][0]
-        if not SimMetaData.quiet_sim:
-            print('Slope:', slope)
-        intercept = linear_regressor.intercept_
-        if not SimMetaData.quiet_sim:
-            print('Intercept:', intercept)
+            # get the linear regression function with slope and intercept
+            slope = linear_regressor.coef_[0][0]
+            if not SimMetaData.quiet_sim:
+                print('Slope:', slope)
+            intercept = linear_regressor.intercept_
+            if not SimMetaData.quiet_sim:
+                print('Intercept:', intercept)
 
-        extract_idx = list(set(df_output.index) - set(sampleDF_80_percent.index))
-        sampleDF_20_percent = df_output.loc[extract_idx]
-        MSE = mean_squared_error(y, y_pred)  # calculate Mean Squared Error
-        if not SimMetaData.quiet_sim:
-            print(f"Mean Squared Error: {MSE}")
+            extract_idx = list(set(df_output.index) - set(sampleDF_80_percent.index))
+            sampleDF_20_percent = df_output.loc[extract_idx]
+            MSE = mean_squared_error(y, y_pred)  # calculate Mean Squared Error
+            if not SimMetaData.quiet_sim:
+                print(f"Mean Squared Error: {MSE}")
 
-        return df_output, slope
+            return df_output, slope
+        else:
+            raise ValueError("No such distance function exists")
 
 
 if __name__ == "__main__":

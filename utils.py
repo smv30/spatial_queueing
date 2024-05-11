@@ -1,36 +1,66 @@
 import numpy as np
 from haversine import haversine, haversine_vector, Unit
-# from spatial_queueing.sim_metadata import SimMetaData
-from sim_metadata import SimMetaData, DatasetParams
+from sim_metadata import SimMetaData, DatasetParams, DistFunc
 import itertools
 
 
-def calc_dist_between_two_points(start_lat, start_lon, end_lat, end_lon, dist_correction_factor=1):
+def calc_dist_between_two_points(start_lat, start_lon, end_lat, end_lon, dist_func, dist_correction_factor=1):
     if np.array(start_lat).size != np.array(end_lat).size:
         if np.array(start_lat).size == 1:
             start_lat_list = np.ones(len(end_lat)) * start_lat
             start_lon_list = np.ones(len(end_lon)) * start_lon
-            start = list(zip(start_lat_list, start_lon_list))
-            end = list(zip(end_lat, end_lon))
-            haversine_distance = haversine_vector(start, end, unit=Unit.MILES)
+            end_lat_list = end_lat
+            end_lon_list = end_lon
         elif np.array(end_lat).size == 1:
+            start_lat_list = start_lat
+            start_lon_list = start_lon
             end_lat_list = np.ones(len(start_lat)) * end_lat
             end_lon_list = np.ones(len(start_lon)) * end_lon
-            start = list(zip(start_lat, start_lon))
+        else:
+            raise ValueError("The number of start locations and end locations do not match.")
+        if dist_func == DistFunc.HAVERSINE.value:
+            start = list(zip(start_lat_list, start_lon_list))
             end = list(zip(end_lat_list, end_lon_list))
-            haversine_distance = haversine_vector(start, end, unit=Unit.MILES)
+            distance = haversine_vector(start, end, unit=Unit.MILES)
+        elif dist_func == DistFunc.MANHATTAN.value:
+            start1 = list(zip(start_lat_list, start_lon_list))
+            end1 = list(zip(start_lat_list, end_lon_list))
+            start2 = list(zip(start_lat_list, start_lon_list))
+            end2 = list(zip(end_lat_list, start_lon_list))
+            distance = haversine_vector(start1, end1, unit=Unit.MILES) + haversine_vector(start2, end2, unit=Unit.MILES)
         else:
             raise ValueError("The number of start locations and end locations do not match.")
     else:
         if np.array(start_lat).size == 1:
-            start = (start_lat, start_lon)
-            end = (end_lat, end_lon)
-            haversine_distance = haversine(start, end, unit=Unit.MILES)
+            if dist_func == DistFunc.HAVERSINE.value:
+                start = (start_lat, start_lon)
+                end = (end_lat, end_lon)
+                distance = haversine(start, end, unit=Unit.MILES)
+            elif dist_func == DistFunc.MANHATTAN.value:
+                start1 = (start_lat, start_lon)
+                end1 = (start_lat, end_lon)
+                start2 = (start_lat, start_lon)
+                end2 = (end_lat, start_lon)
+                distance = haversine(start1, end1, unit=Unit.MILES) + haversine(start2, end2, unit=Unit.MILES)
+            else:
+                raise ValueError("The number of start locations and end locations do not match.")
         else:
-            start = list(zip(start_lat, start_lon))
-            end = list(zip(end_lat, end_lon))
-            haversine_distance = haversine_vector(start, end, unit=Unit.MILES)
-    return dist_correction_factor * haversine_distance
+            if dist_func == DistFunc.HAVERSINE.value:
+                start = list(zip(start_lat, start_lon))
+                end = list(zip(end_lat, end_lon))
+                distance = haversine_vector(start, end, unit=Unit.MILES)
+            elif dist_func == DistFunc.MANHATTAN.value:
+                start1 = list(zip(start_lat, start_lon))
+                end1 = list(zip(start_lat, end_lon))
+                start2 = list(zip(start_lat, start_lon))
+                end2 = list(zip(end_lat, start_lon))
+                distance = (
+                        haversine_vector(start1, end1, unit=Unit.MILES)
+                        + haversine_vector(start2, end2, unit=Unit.MILES)
+                )
+            else:
+                raise ValueError("The number of start locations and end locations do not match.")
+    return dist_correction_factor * distance
 
 
 def sample_unif_points_on_sphere(lon_min, lon_max, lat_min, lat_max):
@@ -80,16 +110,24 @@ def sample_random_chargers(lon_min, lon_max, lat_min, lat_max):
 
 
 if __name__ == "__main__":
+    lat1 = 40.7128  # Latitude of point 1
+    lon1 = -74.0060  # Longitude of point 1
+    lat2 = 40.0522  # Latitude of point 2
+    lon2 = -74.2437  # Longitude of point 2
+    dist_correction_factor = 1
+
     # sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
     #                                        lon_max=DatasetParams.longitude_range_max,
     #                                        lat_min=DatasetParams.latitude_range_min,
     #                                        lat_max=DatasetParams.latitude_range_max)
-    # calc_dist_between_two_points(start_lat=start_lat,
-    #                              start_lon=start_lon,
-    #                              end_lat=end_lat,
-    #                              end_lon=end_lon,
-    #                              dist_correction_factor=dist_correction_factor)
-    sample_random_chargers(lon_min=-74.0098531455,
-                           lon_max=-73.77671585449998,
-                           lat_min=40.633872634999996,
-                           lat_max=40.795812)
+    dist = calc_dist_between_two_points(start_lat=lat1,
+                                        start_lon=lon1,
+                                        end_lat=lat2,
+                                        end_lon=lon2,
+                                        dist_correction_factor=dist_correction_factor,
+                                        dist_func=DistFunc.MANHATTAN.value)
+    print(dist)
+    # sample_random_chargers(lon_min=-74.0098531455,
+    #                        lon_max=-73.77671585449998,
+    #                        lat_min=40.633872634999996,
+    #                        lat_max=40.795812)
