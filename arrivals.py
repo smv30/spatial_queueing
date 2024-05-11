@@ -1,5 +1,5 @@
 from sim_metadata import TripState, SimMetaData, DatasetParams
-from spatial_queueing.utils import sample_unif_points_on_sphere
+from utils import sample_unif_points_on_sphere
 
 
 class Trip(object):

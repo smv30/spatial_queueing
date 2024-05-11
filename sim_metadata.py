@@ -3,7 +3,7 @@ from enum import Enum, auto
 
 
 class SimMetaData(object):
-    avg_vel_mph = 40
+    avg_vel_mph = 20
     consumption_kwhpmi = 0.25
     pack_size_kwh = 50
     charge_rate_kw = 20
@@ -24,8 +24,27 @@ class MatchingAlgo(Enum):
     CLOSEST_AVAILABLE_DISPATCH = auto()
 
 
-class MatchingAlgoParams(object):
-    send_only_idle_cars = True  # If False, we send either idle or charging or waiting for charger
+class AvailableCarsForMatching(Enum):
+    ONLY_IDLE = auto()
+    IDLE_AND_CHARGING = auto()
+    IDLE_CHARGING_DRIVING_TO_CHARGER = auto()
+
+
+class PickupThresholdType(Enum):
+    PERCENT_THRESHOLD = auto()
+    CONSTANT_THRESHOLD = auto()
+    NO_THRESHOLD = auto()
+    BOTH_PERCENT_AND_CONSTANT = auto()
+    EITHER_PERCENT_OR_CONSTANT = auto()
+
+
+class PickupThresholdMatchingParams(object):
+    threshold_percent = 0.8
+    threshold_min = 30
+
+
+class AdaptivePowerOfDParams(object):
+    # send_only_idle_cars = True  # If False, we send either idle or charging or waiting for charger
     threshold_percent_of_cars_idling = 0.05
     n_trips_before_updating_d = 1000
     adaptive_d = False
@@ -68,11 +87,13 @@ class ChargerState(Enum):
 
 class Dataset(Enum):
     NYTAXI = auto()
+    OLD_NYTAXI = auto()
     RANDOMLYGENERATED = auto()
+    CHICAGO = auto()
 
 
 class DatasetParams(object):
-    percent_of_trips_filtered = 0.5
+    percent_of_trips_filtered = 0.2
     percentile_lat_lon = 99.9
     longitude_range_min = -74
     latitude_range_min = 40.7
@@ -80,3 +101,18 @@ class DatasetParams(object):
     latitude_range_max = 40.9
     delta_latitude = 1
     delta_longitude = 1
+
+
+class Initialize(Enum):
+    RANDOM_UNIFORM = auto()
+    RANDOM_PICKUP = auto()
+    RANDOM_DESTINATION = auto()
+    EQUAL_TO_INPUT = auto()
+
+
+class DistFunc(Enum):
+    HAVERSINE = auto()
+    MANHATTAN = auto()
+
+
+
