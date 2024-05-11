@@ -330,7 +330,7 @@ if __name__ == "__main__":
     #                         )
 
     # Uncomment the above if you want to add another EV to the database or add them directly to ev_database.py
-    run_simulation(n_cars=750,
+    run_simulation(n_cars=1200,
                    n_chargers=300,
                    n_posts=8,
                    d=1,

@@ -82,12 +82,12 @@ class FleetManager:
                             car.prev_charging_process = self.env.process(
                                 car.drive_to_charger(
                                     end_soc=1,
-                                    charger_idx=closet_available_charger_idx,
+                                    charger_idx=closest_available_charger_idx,
                                     dist_correction_factor=self.dist_correction_factor,
                                     dist_func=self.dist_func
                                 ))
-                            list_posts_available[closet_available_charger_idx] -= 1
-                            if list_posts_available[closet_available_charger_idx] <= 0:
+                            list_posts_available[closest_available_charger_idx] -= 1
+                            if list_posts_available[closest_available_charger_idx] <= 0:
                                 list_available_chargers = list_available_chargers[
                                     list_available_chargers['idx'] != closest_available_charger_idx]
             else:
