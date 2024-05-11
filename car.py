@@ -1,5 +1,5 @@
 from sim_metadata import SimMetaData, CarState, TripState, ChargingAlgoParams, ChargerState, DatasetParams, \
-    Initialize
+    Initialize, DistFunc
 from chargers import SuperCharger
 from arrivals import Trip
 from utils import calc_dist_between_two_points, sample_unif_points_on_sphere
@@ -144,6 +144,7 @@ class Car:
             self.state = CarState.IDLE.value
             self.state_start_time = self.env.now
             self.charging_at_idx = None
+            charger.n_cars_driving_to_charger -= 1
         # else if the car is waiting at the charger:
         #     update car state to idle
         #     use charger object with charger_idx to get queueing_list, then remove the car from the list
@@ -185,6 +186,7 @@ class Car:
         charger = self.list_chargers[charger_idx]
         charger_lat = charger.lat
         charger_lon = charger.lon
+        charger.n_cars_driving_to_charger += 1
         if self.state != CarState.IDLE.value:
             raise ValueError(f"Car {self.id} is not idle to be sent to charge")
 
@@ -229,6 +231,7 @@ class Car:
 
         # Call queueing_at_charger function
         charger.queueing_at_charger(self.id, end_soc)
+        charger.n_cars_driving_to_charger -= 1
 
     def car_charging(self, charger_idx, end_soc):
         self.state = CarState.CHARGING.value
@@ -279,15 +282,14 @@ if __name__ == "__main__":
     car = Car(car_id=0,
               lat=0,
               lon=1,
-              state=CarState.IDLE.value,
-              soc=0.5,
               env=env,
-              list_chargers=list_chargers
+              list_chargers=list_chargers,
+              df_arrival_sequence=None  # Update this if you want to test this file separately
               )
     try:
         car.prev_charging_process = env.process(car.run_charge(1, 1))
     except simpy.Interrupt:
         print("interrupted")
     trip = Trip(env, 0, 1, TripState.WAITING.value)
-    env.process(car.run_trip(trip))
+    env.process(car.run_trip(trip, 1, DistFunc.MANHATTAN.value))
     env.run()

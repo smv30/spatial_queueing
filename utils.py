@@ -1,7 +1,6 @@
 import numpy as np
 from haversine import haversine, haversine_vector, Unit
-from sim_metadata import SimMetaData
-from sim_metadata import DatasetParams, DistFunc
+from sim_metadata import SimMetaData, DatasetParams, DistFunc
 import itertools
 
 

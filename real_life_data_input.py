@@ -10,9 +10,8 @@ from sim_metadata import SimMetaData, DatasetParams, Dataset, DistFunc
 from utils import sample_unif_points_on_sphere
 import warnings
 from utils import calc_dist_between_two_points
-import datetime
-# from simpledbf import Dbf5
 import geopandas as gpd
+from datetime import datetime, timedelta
 
 
 class DataInput:
@@ -87,7 +86,7 @@ class DataInput:
                                                          start_lon=start_lon,
                                                          end_lat=end_lat,
                                                          end_lon=end_lon) / SimMetaData.avg_vel_mph * 60
-            trip_time_datetime = datetime.timedelta(minutes=trip_time_min)
+            trip_time_datetime = timedelta(minutes=trip_time_min)
             dropoff_datetime = curr_time_datetime + trip_time_datetime
             trip_distance_mi = calc_dist_between_two_points(start_lat=start_lat, start_lon=start_lon,
                                                             end_lat=end_lat, end_lon=end_lon)
@@ -103,7 +102,7 @@ class DataInput:
             })
             df_trips = pd.concat([df_trips, df_this_trip], ignore_index=True)
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / arrival_rate_pmin)
-            inter_arrival_time_datetime = datetime.timedelta(minutes=inter_arrival_time_min)
+            inter_arrival_time_datetime = timedelta(minutes=inter_arrival_time_min)
             curr_time_datetime = curr_time_datetime + inter_arrival_time_datetime
             time_passed = (curr_time_datetime - start_datetime).total_seconds() / 60.0
         if not os.path.isdir(data_dir):
@@ -420,25 +419,10 @@ class DataInput:
             raise ValueError("No such distance function exists")
 
 
-# # Step 6: Calculate the Euclidean distance
-# print("-------------Euclidean Distance------------")
-# sampleDF["euclidean_distance"] = ""
-# sampleDF["pickup"] = list(zip(sampleDF["pickup_latitude"], sampleDF["pickup_longitude"]))
-# sampleDF["dropoff"] = list(zip(sampleDF["dropoff_latitude"], sampleDF["dropoff_longitude"]))
-# sampleDF["euclidean_distance"] = np.sqrt(np.sum(np.square(sampleDF["pickup"] - sampleDF["dropoff"])))
-# sampleDF["euclidean_distance"] = np.sqrt(np.sum(tuple(map(lambda i, j: np.square(i - j),
-#                                          sampleDF["pickup"], sampleDF["dropoff"]))))
-# sampleDF["euclidean_distance"] = np.sqrt((np.square(sampleDF["pickup_latitude"] - sampleDF["dropoff_latitude"]) +
-#                                          np.square(sampleDF["pickup_longitude"] - sampleDF["dropoff_longitude"])))
-# print(sampleDF[["euclidean_distance", "trip_distance"]])
-# # Step 7: Calculate the L1 Distance
-# # Step 8: Calculate the Lp Distance
-
-# To Do:
-# 1. Add a feature to NY dataset: matching every minute (now we are matching every trip) -> change matching algorithm
-# 2. Essay: compare matching instantaneously vs. waiting for some time
-# 3. Create a random dataset which has same columns as the NY one (another dataset)
-
 if __name__ == "__main__":
     data_input = DataInput(percentile_lat_lon=99.9)
     DataInput.plotuniftrip(data_input)
+    # ny_taxi_dataset(dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet',
+    #                 start_datetime=datetime(2010, 12, 1, 0, 0, 0),
+    #                 end_datetime=datetime(2010, 12, 4, 0, 0, 0),
+    #                 percent_of_trips=DatasetParams.percent_of_trips_filtered)
