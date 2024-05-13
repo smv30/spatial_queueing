@@ -55,6 +55,7 @@ class FleetManager:
             self.df_list_charger = pd.DataFrame([
                 self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
             ])
+            self.df_list_charger = self.df_list_charger.set_index("idx")
             if counter == 0:
                 inter_arrival_time_min = 0
             elif counter == len(self.trip_data):
@@ -74,7 +75,6 @@ class FleetManager:
                                           )
                 list_available_chargers = self.df_list_charger[available_charger_mask]
                 for car_id in list_cars:
-                    list_posts_available = np.copy(self.df_list_charger["n_available_posts"])
                     car = self.car_tracker[car_id]
                     if car.soc <= charge_threshold:
                         closest_available_charger_idx = self.closest_available_charger(car, list_available_chargers)
@@ -86,10 +86,9 @@ class FleetManager:
                                     dist_correction_factor=self.dist_correction_factor,
                                     dist_func=self.dist_func
                                 ))
-                            list_posts_available[closest_available_charger_idx] -= 1
-                            if list_posts_available[closest_available_charger_idx] <= 0:
-                                list_available_chargers = list_available_chargers[
-                                    list_available_chargers['idx'] != closest_available_charger_idx]
+                            list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] -= 1
+                            if list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] <= 0:
+                                list_available_chargers = list_available_chargers.drop(closest_available_charger_idx)
             else:
                 raise ValueError(f"Charging algorithm {self.charging_algo} does not exist")
             curr_time_min = self.env.now
@@ -396,9 +395,9 @@ class FleetManager:
             raise ValueError(f"Matching algorithm {self.matching_algo} does not exist")
 
     def closest_available_charger(self, car, list_available_chargers):
-        if len(list_available_chargers["lat"]) == 0:
+        if len(list_available_chargers["lat"]) <= 1:
             return None
-        dist_to_superchargers = calc_dist_between_two_points(
+        dist_to_supercharger = calc_dist_between_two_points(
             start_lat=car.lat,
             start_lon=car.lon,
             end_lat=list_available_chargers["lat"],
@@ -406,6 +405,6 @@ class FleetManager:
             dist_correction_factor=self.dist_correction_factor,
             dist_func=self.dist_func
         )
-        argmin_idx = np.argmin(dist_to_superchargers)
-        closest_supercharger_idx = list_available_chargers["idx"].iloc[argmin_idx]
-        return closest_supercharger_idx
+        argmin_idx = np.argmin(dist_to_supercharger)
+        closest_charger_idx = list_available_chargers.index[argmin_idx]
+        return closest_charger_idx
