@@ -341,7 +341,7 @@ if __name__ == "__main__":
                    dataset_source=Dataset.CHICAGO.value,
                    start_datetime=datetime(2022, 6, 14, 0, 0, 0),
                    end_datetime=datetime(2022, 6, 17, 0, 0, 0),
-                   matching_algo=MatchingAlgo.POWER_OF_D.value,
+                   matching_algo=MatchingAlgo.CLOSEST_AVAILABLE_DISPATCH.value,
                    charging_algo=ChargingAlgo.CHARGE_ALL_IDLE_CARS.value,
                    available_cars_for_matching=AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value,
                    pickup_threshold_type=PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value,

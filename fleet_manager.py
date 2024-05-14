@@ -366,10 +366,10 @@ class FleetManager:
                             car_to_dispatch["pickup_time_min"]
                             <= PickupThresholdMatchingParams.threshold_percent * trip.trip_time_min
                     ):
-                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                        return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
                 elif self.pickup_threshold_type == PickupThresholdType.CONSTANT_THRESHOLD.value:
                     if car_to_dispatch["pickup_time_min"] <= PickupThresholdMatchingParams.threshold_min:
-                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                        return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
                 elif self.pickup_threshold_type == PickupThresholdType.BOTH_PERCENT_AND_CONSTANT.value:
                     if (
                             car_to_dispatch["pickup_time_min"]
@@ -377,7 +377,7 @@ class FleetManager:
                                    PickupThresholdMatchingParams.threshold_min
                                    )
                     ):
-                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                        return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
                 elif self.pickup_threshold_type == PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value:
                     if (
                             car_to_dispatch["pickup_time_min"]
@@ -385,9 +385,9 @@ class FleetManager:
                                    PickupThresholdMatchingParams.threshold_min
                                    )
                     ):
-                        return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                        return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
                 elif self.pickup_threshold_type == PickupThresholdType.NO_THRESHOLD.value:
-                    return car_to_dispatch["id"], car_to_dispatch["pickup_time_min"], n_available_cars
+                    return int(car_to_dispatch["id"]), car_to_dispatch["pickup_time_min"], n_available_cars
                 else:
                     raise ValueError("No such thresholding scheme exists")
             return None, None, n_available_cars
