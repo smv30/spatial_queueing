@@ -277,10 +277,11 @@ def run_simulation(
         soc = df_demand_curve_data["avg_soc"].to_numpy()
         ax1.stackplot(x, np.transpose(df_demand_curve_data[[
             "driving_with_passenger", "driving_without_passenger", "idle", "driving_to_charger", "charging",
-            "waiting_for_charger"]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r', 'y'])
+            "waiting_for_charger"]].to_numpy()),
+                      colors=['#1F77B4', '#FC8D62', '#2CA02C', '#9467BD', '#E6AB02', '#036c5f'])
         ax2.plot(x, soc, 'k', linewidth=3)
-        ax1.set_xlabel("Time (min)")
-        ax1.set_ylabel("Number of Cars")
+        ax1.set_xlabel("Time (min)", fontsize=18)
+        ax1.set_ylabel("Number of Cars", fontsize=18)
         ax1.set_ylim([0, n_cars])
         ax2.set_ylabel("SOC")
         ax2.set_ylim([0, 1])
