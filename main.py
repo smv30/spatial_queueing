@@ -194,12 +194,18 @@ def run_simulation(
     percentage_workload_served = total_served_workload / total_incoming_workload
 
     kpi = pd.DataFrame({
+        "ev_type": ev_model,
+        "charge_rate_kw": SimMetaData.charge_rate_kw,
+        "matching_algorithm": matching_algo,
+        "charging_algorithm": charging_algo,
+        "available_ev_for_matching": available_cars_for_matching,
+        "d": d,
+        "adaptive_d": adaptive_d,
         "fleet_size": n_cars,
+        "n_chargers": n_chargers,
         "pack_size_kwh": SimMetaData.pack_size_kwh,
         "consumption_kwhpmi": SimMetaData.consumption_kwhpmi,
-        "charge_rate_kw": SimMetaData.charge_rate_kw,
         "avg_vel_mph": SimMetaData.avg_vel_mph,
-        "n_chargers": n_chargers,
         "n_posts": n_posts,
         "total_sim_duration_min": sim_duration_min,
         "arrival_rate_pmin": arrival_rate_pmin,
@@ -211,8 +217,6 @@ def run_simulation(
         "number_of_trips_to_charger_per_car_per_hr": avg_n_of_charging_trips,
         "avg_soc_over_time_over_cars": avg_soc,
         "service_level_percentage": service_level_percentage,
-        "matching_algorithm": matching_algo,
-        "charging_algorithm": charging_algo,
         "percentage_workload_served": percentage_workload_served
     }, index=[0])
     if SimMetaData.save_results:
@@ -330,14 +334,14 @@ if __name__ == "__main__":
     #                         )
 
     # Uncomment the above if you want to add another EV to the database or add them directly to ev_database.py
-    run_simulation(n_cars=1200,
-                   n_chargers=300,
-                   n_posts=8,
+    run_simulation(n_cars=750,
+                   n_chargers=200,
+                   n_posts=1,
                    d=1,
-                   dataset_source=Dataset.OLD_NYTAXI.value,
-                   start_datetime=datetime(2010, 12, 1, 0, 0, 0),
-                   end_datetime=datetime(2010, 12, 2, 0, 0, 0),
-                   matching_algo=MatchingAlgo.POWER_OF_D.value,
+                   dataset_source=Dataset.CHICAGO.value,
+                   start_datetime=datetime(2022, 6, 14, 0, 0, 0),
+                   end_datetime=datetime(2022, 6, 17, 0, 0, 0),
+                   matching_algo=MatchingAlgo.CLOSEST_AVAILABLE_DISPATCH.value,
                    charging_algo=ChargingAlgo.CHARGE_ALL_IDLE_CARS.value,
                    available_cars_for_matching=AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value,
                    pickup_threshold_type=PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value,
@@ -345,6 +349,6 @@ if __name__ == "__main__":
                    infinite_chargers=False,
                    dist_func=DistFunc.MANHATTAN.value,
                    results_folder="simulation_results/",
-                   dataset_path='/Users/sushilvarma/PycharmProjects/SpatialQueueing/yellow_tripdata_2010-12.parquet',
+                   dataset_path='/Users/sushilvarma/PycharmProjects/SpatialQueueing/Chicago_year_2022_month_06.csv',
                    ev_model="Tesla Model 3"
                    )

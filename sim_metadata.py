@@ -40,7 +40,7 @@ class PickupThresholdType(Enum):
 
 class PickupThresholdMatchingParams(object):
     threshold_percent = 0.8
-    threshold_min = 30
+    threshold_min = 45
 
 
 class AdaptivePowerOfDParams(object):

@@ -329,7 +329,7 @@ class DataInput:
         df_output["pickup_datetime"] = pd.to_datetime(df_output["pickup_datetime"])
         df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
         df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output["pickup_datetime"]).dt.total_seconds() / 60.0
-        SimMetaData.avg_vel_mph = sum(df_output["trip_distance"]) / sum(df_output["trip_time_min"]) * 60
+        SimMetaData.avg_vel_mph = np.mean(df_output["trip_distance"]) / np.mean(df_output["trip_time_min"]) * 60
         warnings.warn(f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
 
         # Plot all trips' start longitude in a histogram
