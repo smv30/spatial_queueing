@@ -15,6 +15,9 @@ from sim_metadata import SimMetaData, TripState, MatchingAlgo, ChargingAlgoParam
     AdaptivePowerOfDParams, ChargingAlgo, Initialize, AvailableCarsForMatching, DistFunc, PickupThresholdType
 from real_life_data_input import DataInput
 from ev_database import ElectricVehicleDatabase
+import argparse
+from distutils.util import strtobool
+from mpl_toolkits.basemap import Basemap
 
 
 def run_simulation(
@@ -25,7 +28,9 @@ def run_simulation(
         arrival_rate_pmin=None,
         pickup_threshold_type=PickupThresholdType.NO_THRESHOLD.value,
         sim_duration_min=None,
+        charge_rate_kw=None,
         dataset_source=None,
+        uniform_locations=None,
         dist_func=DistFunc.MANHATTAN.value,
         adaptive_d=None,
         active_threshold=None,
@@ -44,6 +49,14 @@ def run_simulation(
     env = simpy.Environment()
     current_dir = os.path.dirname(os.path.realpath(__file__))
     home_dir = os.path.join(current_dir, "spatial_queueing")
+    if uniform_locations is not None:
+        DatasetParams.uniform_locations = uniform_locations
+    if DatasetParams.uniform_locations is True:
+        # Setting a smaller delta latitude and longitude to control the trip time
+        print(f"The locations are resampled uniformly at random in the dataset")
+        DatasetParams.delta_latitude = 0.5
+        DatasetParams.delta_longitude = 0.5
+        print(f"The delta latitude is set to be {DatasetParams.delta_latitude, DatasetParams.delta_longitude} to contrl the trip time")
 
     if dataset_source in [Dataset.NYTAXI.value, Dataset.CHICAGO.value, Dataset.OLD_NYTAXI.value]:
         data_input = DataInput(percentile_lat_lon=DatasetParams.percentile_lat_lon)
@@ -79,6 +92,9 @@ def run_simulation(
     if adaptive_d is not None:
         AdaptivePowerOfDParams.adaptive_d = adaptive_d
         print(f"adaptive_d is set to {adaptive_d} manually by the user")
+    if charge_rate_kw is not None:
+        SimMetaData.charge_rate_kw = charge_rate_kw
+        print(f"Charge rate is set to {charge_rate_kw} kW manually by the user")
     if ev_model is not None:
         ev_database = ElectricVehicleDatabase()
         ev_info = ev_database.get_vehicle_info(ev_model)
@@ -93,14 +109,14 @@ def run_simulation(
 
     # Initialize all supercharging stations
     list_chargers = []
+    # basemap = Basemap(projection='merc', llcrnrlat=41.6, urcrnrlat=42, llcrnrlon=-87.9, urcrnrlon=-87.5, resolution='h')
     for charger_idx in range(n_chargers):
         charger = SuperCharger(idx=charger_idx,
                                n_posts=n_posts,
                                env=env,
                                df_arrival_sequence=df_arrival_sequence,
-                               initialize_chargers=Initialize.RANDOM_DESTINATION.value)
+                               initialize_chargers=Initialize.RANDOM_UNIFORM.value)
         list_chargers.append(charger)
-
     # Initializing all cars
     car_tracker = []
     for car_id in range(n_cars):
@@ -126,6 +142,7 @@ def run_simulation(
                                  pickup_threshold_type=pickup_threshold_type,
                                  available_cars_for_matching=available_cars_for_matching,
                                  dist_func=dist_func,
+                                 start_datetime=start_datetime,
                                  d=d)
     env.process(fleet_manager.match_trips())
     env.run(until=sim_duration_min)
@@ -193,6 +210,11 @@ def run_simulation(
     total_served_workload = (df_demand_curve_data["delta_time"] * df_demand_curve_data["driving_with_passenger"]).sum()
     percentage_workload_served = total_served_workload / total_incoming_workload
 
+    workload_soc_penalty = (
+        df_demand_curve_data["avg_soc"][len(df_demand_curve_data) - 1]
+         - df_demand_curve_data["avg_soc"][0]
+         ) * SimMetaData.pack_size_kwh / SimMetaData.charge_rate_kw * 60 / total_incoming_workload
+
     kpi = pd.DataFrame({
         "ev_type": ev_model,
         "charge_rate_kw": SimMetaData.charge_rate_kw,
@@ -217,13 +239,18 @@ def run_simulation(
         "number_of_trips_to_charger_per_car_per_hr": avg_n_of_charging_trips,
         "avg_soc_over_time_over_cars": avg_soc,
         "service_level_percentage": service_level_percentage,
-        "percentage_workload_served": percentage_workload_served
+        "percentage_workload_served": percentage_workload_served,
+        "workload_soc_penalty": workload_soc_penalty
     }, index=[0])
+
     if SimMetaData.save_results:
         # Save Results
         today = datetime.now()
         curr_date_and_time = today.strftime("%b_%d_%Y_%H_%M_%S")
-        top_level_dir = os.path.join(results_folder, curr_date_and_time)
+        top_level_dir = os.path.join(results_folder, f"ev_{n_cars}_nc_{n_chargers}_{curr_date_and_time}")
+        plot_dir = os.path.join(top_level_dir, "plots")
+        if not os.path.isdir(plot_dir):
+            os.makedirs(plot_dir)
 
         soc_data_folder = "soc_time_series"
         soc_data_dir = os.path.join(top_level_dir, soc_data_folder)
@@ -250,10 +277,6 @@ def run_simulation(
             writer.writerow(["time (min)", "number of trips"])
             writer.writerows(zip(current_min_list, num_trips_in_progress_list))
 
-        # Plot Results
-        plot_dir = os.path.join(top_level_dir, "plots")
-        if not os.path.isdir(plot_dir):
-            os.makedirs(plot_dir)
         # Plotting SOC time series data for the first 20 cars
         for i in range(min(20, n_cars)):
             plt.plot(soc_time_series_data[:, i], label=f'Car {i}')
@@ -264,24 +287,25 @@ def run_simulation(
         plt.savefig(soc_plot_file)
         plt.clf()
 
+        # Plotting histogram of pickup times
         plt.hist(list_pickup_time_min)
-        plt.xlabel("Frequency")
-        plt.ylabel("Pickup Time (min)")
+        plt.ylabel("Frequency")
+        plt.xlabel("Pickup Time (min)")
         pickup_time_plot_file = os.path.join(plot_dir, "pickup_time_hist.png")
         plt.savefig(pickup_time_plot_file)
         plt.clf()
 
+        # Stackplot of the state of the EVs with SoC overlaid
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
         x = df_demand_curve_data["time"].to_numpy()
         soc = df_demand_curve_data["avg_soc"].to_numpy()
         ax1.stackplot(x, np.transpose(df_demand_curve_data[[
             "driving_with_passenger", "driving_without_passenger", "idle", "driving_to_charger", "charging",
-            "waiting_for_charger"]].to_numpy()),
-                      colors=['#1F77B4', '#FC8D62', '#2CA02C', '#9467BD', '#E6AB02', '#036c5f'])
+            "waiting_for_charger"]].to_numpy()), colors=['b', 'tab:orange', 'g', 'tab:purple', 'r', 'y'])
         ax2.plot(x, soc, 'k', linewidth=3)
-        ax1.set_xlabel("Time (min)", fontsize=18)
-        ax1.set_ylabel("Number of Cars", fontsize=18)
+        ax1.set_xlabel("Time (min)")
+        ax1.set_ylabel("Number of Cars")
         ax1.set_ylim([0, n_cars])
         ax2.set_ylabel("SOC")
         ax2.set_ylim([0, 1])
@@ -291,36 +315,54 @@ def run_simulation(
         plt.savefig(demand_curve_plot_file)
         plt.clf()
 
-        fig, ax1 = plt.subplots()
-        ax2 = ax1.twinx()
-        x = df_demand_curve_data["time"].to_numpy()
-        soc = df_demand_curve_data["avg_soc"].to_numpy()
-        n_charging_and_idle = (df_demand_curve_data["idle"] + df_demand_curve_data["charging"]).to_numpy()
-        n_cars_available = df_demand_curve_data["n_cars_available"].to_numpy()
-        ax1.plot(x, n_charging_and_idle, 'b')
-        ax1.plot(x, n_cars_available, 'g')
-        ax2.plot(x, soc, 'k', linewidth=3)
-        ax1.set_xlabel("Time (min)")
-        ax1.set_ylabel("Number of Cars")
-        ax1.set_ylim([0, n_cars])
-        ax2.set_ylabel("SOC")
-        ax2.set_ylim([0, 1])
-        plt.title("n_available, n_charging_idle and avg_soc")
-        demand_curve_plot_file = os.path.join(plot_dir, "n_available_and_n_charging_idle.png")
-        plt.savefig(demand_curve_plot_file)
+        # Scatter of available EVs versus pickup times
+        list_n_available_cars_to_match = [fleet_manager.list_trips[trip].n_available_cars_to_match
+                                          for trip in range(total_n_trips)
+                                          if fleet_manager.list_trips[trip].pickup_time_min != 0
+                                          ]
+        bins = [n_cars / 20 * i for i in range(21)]
+        list_mean_pickup_times = []
+        list_std_pickup_times = []
+        # Iterate over bins
+        for i in range(len(bins) - 1):
+            # Find indices of values in list_n_available_cars_to_match within bin range
+            indices = [idx for idx, val in enumerate(list_n_available_cars_to_match) if bins[i] < val <= bins[i+1]]
+            # Calculate mean of corresponding values in list_pickup_time
+            list_mean_pickup_times.append(np.mean([list_pickup_time_min[idx] for idx in indices]))
+            list_std_pickup_times.append(np.std([list_pickup_time_min[idx] for idx in indices]))
+
+        plt.errorbar(bins[0:len(bins) - 1], list_mean_pickup_times, list_std_pickup_times, linestyle='None', marker='^')
+        plt.xlabel("n_available_cars_to_match")
+        plt.ylabel("pickup_times_min")
+        pickup_time_plot_file = os.path.join(plot_dir, "pickup_time_vs_available_cars.png")
+        plt.savefig(pickup_time_plot_file)
         plt.clf()
 
-        fig, ax = plt.subplots()
-        x = df_demand_curve_data["n_cars_available"].to_numpy()
-        y = df_demand_curve_data["pickup_time_min"].to_numpy()
-        ax.plot(x, y)
-        ax.set_xlabel("Number of Cars Available")
-        ax.set_ylabel("Time (min)")
-        ax.set_xlim([0, n_cars])
-        plt.title("pickup_time_min vs. n_cars_available")
-        demand_curve_plot_file = os.path.join(plot_dir, "pickup_time_and_n_cars_available.png")
-        plt.savefig(demand_curve_plot_file)
-        plt.clf()
+        # Spatial Plots
+        # Get latitude and longitude data
+        list_charger_lat = [charger.lat for charger in list_chargers]
+        list_charger_lon = [charger.lon for charger in list_chargers]
+
+        # Create a map of Chicago
+        plt.figure(figsize=(10, 8))
+        m = Basemap(projection='merc', llcrnrlat=41.6, urcrnrlat=42, llcrnrlon=-87.9, urcrnrlon=-87.5, resolution='h')
+        m.drawcoastlines()
+        m.drawcountries()
+        m.drawstates()
+        m.drawmapboundary(fill_color='aqua')
+        m.fillcontinents(color='lightgray',lake_color='aqua')
+
+        # Convert latitude and longitude to map coordinates
+        x, y = m(list_charger_lon, list_charger_lat)
+
+        # Plot the data as a scatter plot
+        m.scatter(x, y, marker='o', color='r', alpha=0.7)
+
+        # Add title and show plot
+        plt.title('Scatter Plot of Latitude and Longitude in Chicago')
+        pickup_time_plot_file = os.path.join(plot_dir, "charger_locations.png")
+        plt.savefig(pickup_time_plot_file)
+
 
     print(f"Simulation Time: {time.time() - start_time} secs")
     return kpi
@@ -335,21 +377,37 @@ if __name__ == "__main__":
     #                         )
 
     # Uncomment the above if you want to add another EV to the database or add them directly to ev_database.py
-    run_simulation(n_cars=750,
-                   n_chargers=200,
-                   n_posts=1,
-                   d=1,
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-ev', '--ev_type', type=str, default="Tesla_Model_3")
+    parser.add_argument('-ckw', '--charge_rate_kw', type=int, default=20)
+    parser.add_argument('-ma', '--matching_algorithm', type=int, default=MatchingAlgo.POWER_OF_D.value)
+    parser.add_argument('-ca', '--charging_algorithm', type=int, default=ChargingAlgo.CHARGE_ALL_IDLE_CARS.value)
+    parser.add_argument('-aev', '--available_ev_for_matching', type=int, default=AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value)
+    parser.add_argument('-d', '--power_of_d', type=int, default=1)
+    parser.add_argument('-ad', '--adaptive_d', type=str, default="False")  # Accepts string values
+    parser.add_argument('-nev', '--n_cars', type=int, default=2200)
+    parser.add_argument('-nc', '--n_chargers', type=int, default=500)
+    args = parser.parse_args()
+
+    # Convert 'adaptive_d' argument to boolean
+    args.adaptive_d = bool(strtobool(args.adaptive_d))
+    run_simulation(n_cars=args.n_cars,
+                   n_chargers=args.n_chargers,
+                   n_posts=4,
+                   d=args.power_of_d,
+                   charge_rate_kw=args.charge_rate_kw,
                    dataset_source=Dataset.CHICAGO.value,
+                   uniform_locations=False,
                    start_datetime=datetime(2022, 6, 14, 0, 0, 0),
-                   end_datetime=datetime(2022, 6, 17, 0, 0, 0),
-                   matching_algo=MatchingAlgo.CLOSEST_AVAILABLE_DISPATCH.value,
-                   charging_algo=ChargingAlgo.CHARGE_ALL_IDLE_CARS.value,
-                   available_cars_for_matching=AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value,
-                   pickup_threshold_type=PickupThresholdType.EITHER_PERCENT_OR_CONSTANT.value,
-                   adaptive_d=True,
+                   end_datetime=datetime(2022, 6, 16, 0, 0, 0),
+                   matching_algo=args.matching_algorithm,
+                   charging_algo=args.charging_algorithm,
+                   available_cars_for_matching=args.available_ev_for_matching,
+                   pickup_threshold_type=PickupThresholdType.NO_THRESHOLD.value,
+                   adaptive_d=args.adaptive_d,
                    infinite_chargers=False,
                    dist_func=DistFunc.MANHATTAN.value,
-                   results_folder="simulation_results/",
-                   dataset_path='/Users/sushilvarma/PycharmProjects/SpatialQueueing/Chicago_year_2022_month_06.csv',
-                   ev_model="Tesla Model 3"
+                   results_folder="simulation_results",
+                   dataset_path='Chicago_year_2022_month_06.csv',
+                   ev_model=args.ev_type
                    )

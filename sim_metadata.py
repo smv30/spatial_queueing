@@ -10,6 +10,7 @@ class SimMetaData(object):
     min_allowed_soc = 0.05
     quiet_sim = True  # if False, it will print everything (make sure every value in main is small)
     results_folder = "simulation_results"
+    random_seed = 2024
     random_seed_gen = np.random.default_rng(2021)
     save_results = True  # able to plot
     freq_of_data_logging_min = 0.01
@@ -36,11 +37,13 @@ class PickupThresholdType(Enum):
     NO_THRESHOLD = auto()
     BOTH_PERCENT_AND_CONSTANT = auto()
     EITHER_PERCENT_OR_CONSTANT = auto()
+    MIN_AVAILABLE_CARS_PERCENT = auto()
 
 
 class PickupThresholdMatchingParams(object):
     threshold_percent = 0.8
     threshold_min = 45
+    min_available_cars_percent = 0.1
 
 
 class AdaptivePowerOfDParams(object):
@@ -54,7 +57,7 @@ class ChargingAlgoParams(object):
     higher_soc_threshold = 1
     safety_factor_to_reach_closest_charger = 1.5
     infinite_chargers = True
-    start_of_the_night = 0
+    start_of_the_night = 24  # Should be (0, 24] (use 24 if you want to use 0)
     end_of_the_night = 5
     n_cars_driving_to_charger_discounter = 0.5
 
@@ -93,7 +96,7 @@ class Dataset(Enum):
 
 
 class DatasetParams(object):
-    percent_of_trips_filtered = 0.2
+    percent_of_trips_filtered = 0.1
     percentile_lat_lon = 99.9
     longitude_range_min = -74
     latitude_range_min = 40.7
@@ -101,6 +104,7 @@ class DatasetParams(object):
     latitude_range_max = 40.9
     delta_latitude = 1
     delta_longitude = 1
+    uniform_locations = True
 
 
 class Initialize(Enum):

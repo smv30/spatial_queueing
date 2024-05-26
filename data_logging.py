@@ -15,12 +15,10 @@ class DataLogging(object):
         self.stdev_soc = []
         self.d = []
         self.charge_threshold = []
-        self.pickup_time_min = []
-        self.n_cars_available = []
 
     def update_data(self, curr_list_soc, n_cars_idle, n_cars_driving_with_passenger, n_cars_driving_without_passenger,
                     n_cars_driving_to_charger, n_cars_charging, n_cars_waiting_for_charger, time_of_logging, avg_soc,
-                    stdev_soc, d, charge_threshold, n_cars_available, pickup_time_min):
+                    stdev_soc, d, charge_threshold):
         self.list_soc.append(curr_list_soc)
         self.n_cars_idle.append(n_cars_idle)
         self.n_cars_charging.append(n_cars_charging)
@@ -33,8 +31,6 @@ class DataLogging(object):
         self.stdev_soc.append(stdev_soc)
         self.d.append(d)
         self.charge_threshold.append(charge_threshold)
-        self.n_cars_available.append(n_cars_available)
-        self.pickup_time_min.append(pickup_time_min)
 
     def demand_curve_to_dict(self):
         return pd.DataFrame({
@@ -48,7 +44,5 @@ class DataLogging(object):
             "avg_soc": self.avg_soc,
             "stdev_soc": self.stdev_soc,
             "d": self.d,
-            "charge_threshold": self.charge_threshold,
-            "n_cars_available": self.n_cars_available,
-            "pickup_time_min": self.pickup_time_min
+            "charge_threshold": self.charge_threshold
         })

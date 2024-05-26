@@ -1,5 +1,7 @@
-from sim_metadata import ChargerState, CarState, ChargingAlgoParams, DatasetParams, Initialize
-from utils import sample_unif_points_on_sphere
+from sim_metadata import SimMetaData, ChargerState, CarState, ChargingAlgoParams
+from sim_metadata import DatasetParams, Initialize, DistFunc
+from utils import sample_unif_points_on_sphere, calc_dist_between_two_points
+from mpl_toolkits.basemap import Basemap
 
 
 class SuperCharger:
@@ -10,6 +12,7 @@ class SuperCharger:
                  env,
                  df_arrival_sequence,
                  initialize_chargers=Initialize.RANDOM_DESTINATION.value,
+                 basemap=None,
                  lat=None,
                  lon=None):
         self.idx = idx
@@ -19,14 +22,30 @@ class SuperCharger:
         # within each lat & lon; 3) divide each number by the total number of trips to get the probability that the
         # trip drop-off within each lat & lon; 4) sample the charger locations based on the probability distribution
         if initialize_chargers == Initialize.RANDOM_UNIFORM.value:
-            self.lat, self.lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-                                                              lon_max=DatasetParams.longitude_range_max,
-                                                              lat_min=DatasetParams.latitude_range_min,
-                                                              lat_max=DatasetParams.latitude_range_max)
+            closest_trip_dist = SimMetaData.avg_vel_mph
+            while closest_trip_dist >= SimMetaData.avg_vel_mph / 30: # Within 20 min driving distance
+                self.lat, self.lon = sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                                                  lon_max=DatasetParams.longitude_range_max,
+                                                                  lat_min=DatasetParams.latitude_range_min,
+                                                                  lat_max=DatasetParams.latitude_range_max)
+                closest_trip_dist = min(
+                    calc_dist_between_two_points(
+                        start_lat=self.lat,
+                        start_lon=self.lon,
+                        end_lat=df_arrival_sequence["pickup_latitude"],
+                        end_lon=df_arrival_sequence["pickup_longitude"],
+                        dist_func=DistFunc.MANHATTAN.value,
+                        dist_correction_factor=1
+                    )
+                )
         elif initialize_chargers == Initialize.RANDOM_DESTINATION.value:
             sample_trip = df_arrival_sequence.sample(1)
             self.lon = sample_trip["dropoff_longitude"].values[0]
             self.lat = sample_trip["dropoff_latitude"].values[0]
+        elif initialize_chargers == Initialize.RANDOM_PICKUP.value:
+            sample_trip = df_arrival_sequence.sample(1)
+            self.lon = sample_trip["pickup_longitude"].values[0]
+            self.lat = sample_trip["pickup_latitude"].values[0]
         elif initialize_chargers == Initialize.EQUAL_TO_INPUT.value:
             self.lat = lat
             self.lon = lon

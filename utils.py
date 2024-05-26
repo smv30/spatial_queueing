@@ -63,20 +63,24 @@ def calc_dist_between_two_points(start_lat, start_lon, end_lat, end_lon, dist_fu
     return dist_correction_factor * distance
 
 
-def sample_unif_points_on_sphere(lon_min, lon_max, lat_min, lat_max):
+def sample_unif_points_on_sphere(lon_min, lon_max, lat_min, lat_max, size=None):
     theta_min = lon_min + 180
     theta_max = lon_max + 180
     phi_min = lat_min + 90
     phi_max = lat_max + 90
     # theta is longitude; phi is latitude
-    unif_lon = SimMetaData.random_seed_gen.uniform(theta_min / 360, theta_max / 360)  # radians
+    unif_lon = SimMetaData.random_seed_gen.uniform(theta_min / 360, theta_max / 360, size=size)  # radians
     unif_lat = SimMetaData.random_seed_gen.uniform(min((np.cos(phi_min * np.pi / 180) + 1) / 2,
                                                        (np.cos(phi_max * np.pi / 180) + 1) / 2),
                                                    max((np.cos(phi_min * np.pi / 180) + 1) / 2,
-                                                       (np.cos(phi_max * np.pi / 180) + 1) / 2))  # radians
+                                                       (np.cos(phi_max * np.pi / 180) + 1) / 2),
+                                                    size=size
+                                                    )  # radians
     lon = unif_lon * 360 - 180  # degrees
     lat = 180 / np.pi * np.arccos(2 * unif_lat - 1) - 90  # degrees
     return lat, lon
+    # https://math.stackexchange.com/questions/1585975/how-to-generate-random-points-on-a-sphere
+    # The fourth answer on the link is the implementation above
 
 
 def sample_random_chargers(lon_min, lon_max, lat_min, lat_max):

@@ -159,7 +159,7 @@ class DataInput:
 
                 # sample a certain percent of data
                 sample_size = int(len(df_filtered) * percent_of_trips)
-                df_filtered = df_filtered.sample(sample_size)
+                df_filtered = df_filtered.sample(sample_size, random_state=SimMetaData.random_seed)
 
                 # Add pickup and dropoff latitudes and longitudes from the shapefile and zones
                 shapefile = gpd.read_file("taxi_zones/taxi_zones.shp")
@@ -189,7 +189,7 @@ class DataInput:
                                                                                 on="PULocationID",
                                                                                 how="inner"
                                                                                 )
-                    sample_pickup = df_filtered.sample_points(1).to_crs(4326)
+                    sample_pickup = df_filtered.sample_points(1, random_state=SimMetaData.random_seed).to_crs(4326)
                     df_filtered["pickup_longitude"] = sample_pickup.x
                     df_filtered["pickup_latitude"] = sample_pickup.y
 
@@ -198,7 +198,7 @@ class DataInput:
                                                                                 on="DOLocationID",
                                                                                 how="inner"
                                                                                 )
-                    sample_dropoff = df_filtered.sample_points(1).to_crs(4326)
+                    sample_dropoff = df_filtered.sample_points(1, random_state=SimMetaData.random_seed).to_crs(4326)
                     df_filtered["dropoff_longitude"] = sample_dropoff.x
                     df_filtered["dropoff_latitude"] = sample_dropoff.y
                     df_filtered = df_filtered[["pickup_datetime",
@@ -250,7 +250,7 @@ class DataInput:
 
                 # sample a certain percent of data
                 sample_size = int(len(df_filtered) * percent_of_trips)
-                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index")
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index", random_state=SimMetaData.random_seed)
             elif dataset_source == Dataset.OLD_NYTAXI.value:
                 entire_df = pd.read_parquet(
                     dataset_path,
@@ -273,7 +273,7 @@ class DataInput:
 
                 # sample a certain percent of data
                 sample_size = int(len(df_filtered) * percent_of_trips)
-                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index")
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index", random_state=SimMetaData.random_seed)
             else:
                 raise ValueError("No such dataset origin exists")
 
@@ -381,7 +381,7 @@ class DataInput:
 
             # Step 5: Linear Regression for Haversine distance
             #         -> Plot, R-Squared value, linear regression function, Mean Squared Error
-            sampleDF_80_percent = df_output.sample(int(len(df_output) * 0.8))
+            sampleDF_80_percent = df_output.sample(int(len(df_output) * 0.8), random_state=SimMetaData.random_seed)
             x = sampleDF_80_percent["haversine_distance"].values.reshape(-1, 1)  # "values" converts it into a numpy array
             y = sampleDF_80_percent["trip_distance"].values.reshape(-1,
                                                                     1)  # -1 means calculate the dimension of rows, but have 1 column

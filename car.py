@@ -64,6 +64,7 @@ class Car:
 
     def run_trip(self, trip, dist_correction_factor, dist_func):
         # If the car is driving to charger or charging or waiting for charger, interrupt that process
+        prev_state = self.state
         if self.state in (
                 CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
             self.interrupt_charging(
@@ -109,6 +110,8 @@ class Car:
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} finished trip with an SOC equal to {self.soc} at time {self.env.now}")
         if self.soc < 0:
+            print(self.env.now)
+            print(prev_state)
             raise ValueError("SOC cannot be less than 0")
 
     def interrupt_charging(self, charger_idx, end_soc, dist_correction_factor, dist_func):
