@@ -160,7 +160,8 @@ class FleetManager:
                                     end_soc=end_soc,
                                     charger_idx=closest_available_charger_idx,
                                     dist_correction_factor=self.dist_correction_factor,
-                                    dist_func=self.dist_func
+                                    dist_func=self.dist_func,
+                                    list_available_chargers=list_available_chargers
                                 ))
                             list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] -= 1
                             if list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] <= 0:
@@ -178,7 +179,8 @@ class FleetManager:
                                     end_soc=1,
                                     charger_idx=closest_available_charger_idx,
                                     dist_correction_factor=self.dist_correction_factor,
-                                    dist_func=self.dist_func
+                                    dist_func=self.dist_func,
+                                    list_available_chargers=list_available_chargers
                                 ))
                             list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] -= 1
                             if list_available_chargers.at[closest_available_charger_idx, "n_available_posts"] <= 0:
@@ -380,7 +382,12 @@ class FleetManager:
                 raise ValueError("Such an input for the available cars for matching is invalid")
             if len(cars_of_interest) == 0:
                 return None, None, n_available_cars_to_match
-            d_closest_cars = cars_of_interest.iloc[0:self.d]
+            if isinstance(self.d, int) is False:
+                frac_part = self.d % 1
+                random_d = int(self.d + SimMetaData.random_seed_gen.binomial(n=1, p=frac_part))
+            else:
+                random_d = self.d
+            d_closest_cars = cars_of_interest.iloc[0:random_d]
             possible_car_to_dispatch = d_closest_cars.sort_values("curr_soc", ascending=False).iloc[0]
             if (possible_car_to_dispatch["curr_soc"]
                     - possible_car_to_dispatch["delta_soc"]
@@ -493,6 +500,33 @@ class FleetManager:
                 else:
                     raise ValueError("No such thresholding scheme exists")
             return None, None, n_available_cars_to_match
+        elif self.matching_algo == MatchingAlgo.POWER_OF_RADIUS.value:
+            if self.available_cars_for_matching == AvailableCarsForMatching.ONLY_IDLE.value:
+                cars_of_interest = df_car_tracker[idle_cars_mask]
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_AND_CHARGING.value:
+                cars_of_interest = df_car_tracker[(idle_cars_mask | charging_mask | waiting_for_charger_mask)]
+            elif self.available_cars_for_matching == AvailableCarsForMatching.IDLE_CHARGING_DRIVING_TO_CHARGER.value:
+                cars_of_interest = df_car_tracker[
+                    (idle_cars_mask | charging_mask | waiting_for_charger_mask | driving_to_charger_mask)
+                ]
+            else:
+                raise ValueError("Such an input for the available cars for matching is invalid")
+            pickup_threshold_mask = (cars_of_interest["pickup_time_min"] <= PickupThresholdMatchingParams.threshold_min)
+            cars_in_a_radius = cars_of_interest[pickup_threshold_mask]
+            if len(cars_in_a_radius) == 0:
+                return None, None, n_available_cars_to_match
+            possible_car_to_dispatch = cars_in_a_radius.sort_values("curr_soc", ascending=False).iloc[0]
+            if (possible_car_to_dispatch["curr_soc"]
+                    - possible_car_to_dispatch["delta_soc"]
+                    - soc_to_reach_closest_supercharger > SimMetaData.min_allowed_soc
+            ):
+                return (
+                    int(possible_car_to_dispatch["id"]),
+                     possible_car_to_dispatch["pickup_time_min"],
+                      n_available_cars_to_match
+                )
+            else:
+                return None, None, n_available_cars_to_match
         else:
             raise ValueError(f"Matching algorithm {self.matching_algo} does not exist")
 

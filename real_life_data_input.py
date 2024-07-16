@@ -126,7 +126,9 @@ class DataInput:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         sample_data_path = os.path.join(dir_path, "sampledata.csv")
         # Step 1: read the dataset and get useful columns
-        if not os.path.isfile("sampledata.csv") or SimMetaData.test is False:
+        if os.path.isfile(sample_data_path) and SimMetaData.test is True:
+            df_output = pd.read_csv(sample_data_path)
+        else:
             if dataset_source == Dataset.NYTAXI.value:
 
                 entire_df = pd.read_parquet(
@@ -250,7 +252,8 @@ class DataInput:
 
                 # sample a certain percent of data
                 sample_size = int(len(df_filtered) * percent_of_trips)
-                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index", random_state=SimMetaData.random_seed)
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index",
+                                                 random_state=SimMetaData.random_seed)
             elif dataset_source == Dataset.OLD_NYTAXI.value:
                 entire_df = pd.read_parquet(
                     dataset_path,
@@ -273,7 +276,8 @@ class DataInput:
 
                 # sample a certain percent of data
                 sample_size = int(len(df_filtered) * percent_of_trips)
-                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index", random_state=SimMetaData.random_seed)
+                df_filtered = df_filtered.sample(sample_size, ignore_index=True, axis="index",
+                                                 random_state=SimMetaData.random_seed)
             else:
                 raise ValueError("No such dataset origin exists")
 
@@ -292,7 +296,8 @@ class DataInput:
             upper_percentile_lat_lon_latitude = np.copy(upper_percentile_lat_lon)
             lower_percentile_lat_lon_longitude = np.copy(lower_percentile_lat_lon)
             upper_percentile_lat_lon_longitude = np.copy(upper_percentile_lat_lon)
-            while abs(DatasetParams.latitude_range_max - DatasetParams.latitude_range_min) > DatasetParams.delta_latitude:
+            while abs(
+                    DatasetParams.latitude_range_max - DatasetParams.latitude_range_min) > DatasetParams.delta_latitude:
                 warnings.warn("The max and min latitudes are too far away from each other, "
                               "reducing the percentile by 5%.")
                 lower_percentile_lat_lon_latitude = lower_percentile_lat_lon_latitude + 2.5
@@ -300,7 +305,8 @@ class DataInput:
                 DatasetParams.latitude_range_min, DatasetParams.latitude_range_max = np.percentile(
                     df_filtered["pickup_latitude"],
                     [lower_percentile_lat_lon_latitude, upper_percentile_lat_lon_latitude])
-            while abs(DatasetParams.longitude_range_max - DatasetParams.longitude_range_min) > DatasetParams.delta_longitude:
+            while abs(
+                    DatasetParams.longitude_range_max - DatasetParams.longitude_range_min) > DatasetParams.delta_longitude:
                 warnings.warn("The max and min longitudes are too far away from each other, "
                               "reducing the percentile by 5%.")
                 lower_percentile_lat_lon_longitude = lower_percentile_lat_lon_longitude + 2.5
@@ -321,16 +327,41 @@ class DataInput:
 
             df_output = df_output.sort_values(by='pickup_datetime')
             df_output.reset_index(drop=True)
-
             # Step 3: save the dataframe into a CSV file or read the dataframe from a CSV file
             df_output.to_csv(sample_data_path)
-        else:
-            df_output = pd.read_csv(sample_data_path)
         df_output["pickup_datetime"] = pd.to_datetime(df_output["pickup_datetime"])
         df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
-        df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output["pickup_datetime"]).dt.total_seconds() / 60.0
+        df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output[
+            "pickup_datetime"]).dt.total_seconds() / 60.0
         SimMetaData.avg_vel_mph = np.mean(df_output["trip_distance"]) / np.mean(df_output["trip_time_min"]) * 60
-        warnings.warn(f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
+        warnings.warn(
+            f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
+        if DatasetParams.uniform_locations is True:
+            df_output["pickup_latitude"], df_output["pickup_longitude"] = sample_unif_points_on_sphere(
+                lon_max=DatasetParams.longitude_range_max,
+                lon_min=DatasetParams.longitude_range_max - 0.1,
+                lat_max=DatasetParams.latitude_range_max,
+                lat_min=DatasetParams.latitude_range_max - 0.1,
+                size=len(df_output)
+            )
+            df_output["dropoff_latitude"], df_output["dropoff_longitude"] = sample_unif_points_on_sphere(
+                lon_max=DatasetParams.longitude_range_max,
+                lon_min=DatasetParams.longitude_range_max - 0.1,
+                lat_max=DatasetParams.latitude_range_max,
+                lat_min=DatasetParams.latitude_range_max - 0.1,
+                size=len(df_output)
+            )
+            df_output["trip_distance"] = calc_dist_between_two_points(
+                start_lat=df_output["pickup_latitude"],
+                start_lon=df_output["pickup_longitude"],
+                end_lat=df_output["dropoff_latitude"],
+                end_lon=df_output["dropoff_longitude"],
+                dist_func=DistFunc.MANHATTAN.value,
+                dist_correction_factor=1
+            )
+            df_output["trip_time_min"] = df_output["trip_distance"] / SimMetaData.avg_vel_mph * 60
+            df_output["dropoff_datetime"] = df_output["pickup_datetime"] + pd.to_timedelta(df_output["trip_time_min"],
+                                                                                           'm')
 
         # Plot all trips' start longitude in a histogram
         if not SimMetaData.quiet_sim:
@@ -382,7 +413,8 @@ class DataInput:
             # Step 5: Linear Regression for Haversine distance
             #         -> Plot, R-Squared value, linear regression function, Mean Squared Error
             sampleDF_80_percent = df_output.sample(int(len(df_output) * 0.8), random_state=SimMetaData.random_seed)
-            x = sampleDF_80_percent["haversine_distance"].values.reshape(-1, 1)  # "values" converts it into a numpy array
+            x = sampleDF_80_percent["haversine_distance"].values.reshape(-1,
+                                                                         1)  # "values" converts it into a numpy array
             y = sampleDF_80_percent["trip_distance"].values.reshape(-1,
                                                                     1)  # -1 means calculate the dimension of rows, but have 1 column
             linear_regressor = LinearRegression(fit_intercept=False)  # create object for the class
