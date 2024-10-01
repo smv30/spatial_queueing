@@ -128,6 +128,10 @@ class DataInput:
         # Step 1: read the dataset and get useful columns
         if os.path.isfile(sample_data_path) and SimMetaData.test is True:
             df_output = pd.read_csv(sample_data_path)
+            DatasetParams.latitude_range_min = df_output["pickup_latitude"].min()
+            DatasetParams.latitude_range_max = df_output["pickup_latitude"].max()
+            DatasetParams.longitude_range_min = df_output["pickup_longitude"].min()
+            DatasetParams.longitude_range_max = df_output["pickup_longitude"].max()
         else:
             if dataset_source == Dataset.NYTAXI.value:
 
@@ -280,6 +284,9 @@ class DataInput:
                                                  random_state=SimMetaData.random_seed)
             else:
                 raise ValueError("No such dataset origin exists")
+
+            # remove invalid rows based on pickup and dropoff datetime
+            df_filtered = df_filtered[df_filtered["pickup_datetime"] <= df_filtered["dropoff_datetime"]]
 
             # fetch all rows with valid latitude and longitude
             lower_percentile_lat_lon = (100 - self.percentile_lat_lon) / 2
@@ -452,9 +459,11 @@ class DataInput:
 
 
 if __name__ == "__main__":
-    data_input = DataInput(percentile_lat_lon=99.9)
-    DataInput.plotuniftrip(data_input)
-    # ny_taxi_dataset(dataset_path='/Users/chenzhang/Desktop/Georgia Tech/Research/spatial_queueing/spatial_queueing/yellow_tripdata_2010-12.parquet',
-    #                 start_datetime=datetime(2010, 12, 1, 0, 0, 0),
-    #                 end_datetime=datetime(2010, 12, 4, 0, 0, 0),
-    #                 percent_of_trips=DatasetParams.percent_of_trips_filtered)
+    # data_input = DataInput(percentile_lat_lon=99.9)
+    # DataInput.plotuniftrip(data_input)
+
+    # Use the code below to get the header of the input dataset
+    entire_df = pd.read_parquet(
+        'yellow_tripdata_2010-12.parquet',
+        engine='fastparquet')
+    print(entire_df.columns.values.tolist())

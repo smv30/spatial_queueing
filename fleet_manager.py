@@ -103,7 +103,7 @@ class FleetManager:
                         <= curr_time_in_the_day_min
                         <= ChargingAlgoParams.start_of_the_night * 60
                 ):  # Check if it is currently day
-                    charge_threshold = 0.2  # Send to charge only if SoC is very low
+                    charge_threshold = 0.4  # Send to charge only if SoC is very low
                     is_it_night = False
                 else:
                     charge_threshold = 0.95  # Send all EVs to charge (at night)

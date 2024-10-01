@@ -3,7 +3,7 @@ from enum import Enum, auto
 
 
 class SimMetaData(object):
-    avg_vel_mph = 20
+    avg_vel_mph = 30
     consumption_kwhpmi = 0.25
     pack_size_kwh = 50
     charge_rate_kw = 20
@@ -15,9 +15,7 @@ class SimMetaData(object):
     save_results = True  # able to plot
     freq_of_data_logging_min = 0.01
     demand_curve_res_min = 1
-    test = False
-    max_lat = 10
-    max_lon = 10
+    test = True
 
 
 class MatchingAlgo(Enum):
@@ -54,12 +52,10 @@ class AdaptivePowerOfDParams(object):
 
 
 class ChargingAlgoParams(object):
-    lower_soc_threshold = 0.95
-    higher_soc_threshold = 1
     safety_factor_to_reach_closest_charger = 1.5
-    infinite_chargers = True
-    start_of_the_night = 24 # Should be (0, 24] (use 24 if you want to use 0)
-    end_of_the_night = 5
+    infinite_chargers = False
+    start_of_the_night = 23  # Should be (0, 24] (use 24 if you want to use 0)
+    end_of_the_night = 6
     n_cars_driving_to_charger_discounter = 0.5
 
 
@@ -99,13 +95,13 @@ class Dataset(Enum):
 class DatasetParams(object):
     percent_of_trips_filtered = 0.6
     percentile_lat_lon = 99.9
-    longitude_range_min = -87.6
+    longitude_range_min = -87.7
     latitude_range_min = 41.85
-    longitude_range_max = -87.7
+    longitude_range_max = -87.6
     latitude_range_max = 41.95
     delta_latitude = 1
     delta_longitude = 1
-    uniform_locations = True
+    uniform_locations = False
 
 
 class Initialize(Enum):
@@ -118,6 +114,3 @@ class Initialize(Enum):
 class DistFunc(Enum):
     HAVERSINE = auto()
     MANHATTAN = auto()
-
-
-
