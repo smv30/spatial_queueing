@@ -43,6 +43,10 @@ class Car:
         self.total_drive_to_charge_time = 0
         self.charging_at_idx = None
         self.end_soc_post_charging = None
+        self.list_drive_to_charger_time_min = []
+        self.list_n_available_chargers = []
+        self.list_n_available_posts = []
+        self.list_n_cars_driving_to_charger = []
 
     def to_dict(self):
         if self.charging_at_idx is not None:
@@ -64,6 +68,7 @@ class Car:
 
     def run_trip(self, trip, dist_correction_factor, dist_func):
         # If the car is driving to charger or charging or waiting for charger, interrupt that process
+        prev_state = self.state
         if self.state in (
                 CarState.DRIVING_TO_CHARGER.value, CarState.CHARGING.value, CarState.WAITING_FOR_CHARGER.value):
             self.interrupt_charging(
@@ -109,6 +114,8 @@ class Car:
         if not SimMetaData.quiet_sim:
             print(f"Car {self.id} finished trip with an SOC equal to {self.soc} at time {self.env.now}")
         if self.soc < 0:
+            print(self.env.now)
+            print(prev_state)
             raise ValueError("SOC cannot be less than 0")
 
     def interrupt_charging(self, charger_idx, end_soc, dist_correction_factor, dist_func):
@@ -179,7 +186,7 @@ class Car:
     # Logic: drive_to_charger() call queueing_at_charger()
     #        -> queueing_at_charger() call car_charging()
     #        -> car_charging() call queueing_at_charger()
-    def drive_to_charger(self, end_soc, charger_idx, dist_correction_factor, dist_func):
+    def drive_to_charger(self, end_soc, charger_idx, dist_correction_factor, dist_func, list_available_chargers):
         # Change the car state to DRIVING_TO_CHARGER
         self.charging_at_idx = charger_idx
         self.end_soc_post_charging = end_soc
@@ -222,6 +229,11 @@ class Car:
 
         self.n_of_charging_stops += 1
         self.total_drive_to_charge_time += drive_time_min
+
+        self.list_drive_to_charger_time_min.append(drive_time_min)
+        self.list_n_available_chargers.append(len(list_available_chargers))
+        self.list_n_available_posts.append(sum(list_available_chargers["n_available_posts"]))
+        self.list_n_cars_driving_to_charger.append(sum(list_available_chargers["n_cars_driving_to_charger"]))
 
         # Change the car state to WAITING_FOR_CHARGER
         self.state = CarState.WAITING_FOR_CHARGER.value

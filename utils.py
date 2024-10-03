@@ -63,50 +63,22 @@ def calc_dist_between_two_points(start_lat, start_lon, end_lat, end_lon, dist_fu
     return dist_correction_factor * distance
 
 
-def sample_unif_points_on_sphere(lon_min, lon_max, lat_min, lat_max):
+def sample_unif_points_on_sphere(lon_min, lon_max, lat_min, lat_max, size=None):
     theta_min = lon_min + 180
     theta_max = lon_max + 180
     phi_min = lat_min + 90
     phi_max = lat_max + 90
     # theta is longitude; phi is latitude
-    unif_lon = SimMetaData.random_seed_gen.uniform(theta_min / 360, theta_max / 360)  # radians
+    unif_lon = SimMetaData.random_seed_gen.uniform(theta_min / 360, theta_max / 360, size=size)  # radians
     unif_lat = SimMetaData.random_seed_gen.uniform(min((np.cos(phi_min * np.pi / 180) + 1) / 2,
                                                        (np.cos(phi_max * np.pi / 180) + 1) / 2),
                                                    max((np.cos(phi_min * np.pi / 180) + 1) / 2,
-                                                       (np.cos(phi_max * np.pi / 180) + 1) / 2))  # radians
+                                                       (np.cos(phi_max * np.pi / 180) + 1) / 2),
+                                                   size=size
+                                                   )  # radians
     lon = unif_lon * 360 - 180  # degrees
     lat = 180 / np.pi * np.arccos(2 * unif_lat - 1) - 90  # degrees
     return lat, lon
-
-
-def sample_random_chargers(lon_min, lon_max, lat_min, lat_max):
-    theta_min = DatasetParams.longitude_range_min + 180
-    theta_max = DatasetParams.longitude_range_max + 180
-    phi_min = DatasetParams.latitude_range_min + 90
-    phi_max = DatasetParams.latitude_range_max + 90
-    delta = (theta_max - theta_min) / 20
-    theta_list = np.arange(start=theta_min, stop=theta_max, step=delta).tolist()
-    theta_list.append(theta_max)
-    phi_list = []
-    phi = phi_min
-    while phi <= phi_max:
-        phi_list.append(phi)
-        phi = phi - delta / np.sin(phi)
-    phi_list.append(phi_max)
-    theta_list = [each_theta - 180 for each_theta in theta_list]  # length=21
-    phi_list = [each_phi - 90 for each_phi in phi_list]  # length=38
-    grid_list = list(itertools.product(theta_list, phi_list))  # length=798
-    grid_dict_2D = np.array(grid_list).reshape(len(theta_list), len(phi_list), 2)
-    # grid_dict = dict.fromkeys(grid_list, 0)
-    # df_sample_trips =
-    # for row_index in range(len(df_sample_trips)):
-    #     dropoff_lon = df_sample_trips.loc[row_index, "dropoff_longitude"]
-    #     dropoff_lat = df_sample_trips.loc[index, "dropoff_latitude"]
-    # key = (-74.0, dropoff_lat)
-    # grid_dict[key]
-    print(grid_list)
-    print(grid_dict_2D[0])
-    # return lat, lon
 
 
 if __name__ == "__main__":
@@ -116,10 +88,11 @@ if __name__ == "__main__":
     lon2 = -74.2437  # Longitude of point 2
     dist_correction_factor = 1
 
-    # sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
-    #                                        lon_max=DatasetParams.longitude_range_max,
-    #                                        lat_min=DatasetParams.latitude_range_min,
-    #                                        lat_max=DatasetParams.latitude_range_max)
+    sample_unif_points_on_sphere(lon_min=DatasetParams.longitude_range_min,
+                                 lon_max=DatasetParams.longitude_range_max,
+                                 lat_min=DatasetParams.latitude_range_min,
+                                 lat_max=DatasetParams.latitude_range_max)
+
     dist = calc_dist_between_two_points(start_lat=lat1,
                                         start_lon=lon1,
                                         end_lat=lat2,
@@ -127,7 +100,3 @@ if __name__ == "__main__":
                                         dist_correction_factor=dist_correction_factor,
                                         dist_func=DistFunc.MANHATTAN.value)
     print(dist)
-    # sample_random_chargers(lon_min=-74.0098531455,
-    #                        lon_max=-73.77671585449998,
-    #                        lat_min=40.633872634999996,
-    #                        lat_max=40.795812)

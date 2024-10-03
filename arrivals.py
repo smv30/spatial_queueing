@@ -26,6 +26,7 @@ class Trip(object):
         self.state = state
         self.trip_distance_mi = trip_distance_mi
         self.pickup_time_min = 0
+        self.available_cars_to_match = 0
         self.trip_time_min = trip_time_min
 
     def update_trip_state(self, renege_time_min):
