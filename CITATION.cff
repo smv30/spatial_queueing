@@ -1,0 +1,49 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  EV-Sim: A Simulation Framework for Ride-Hailing with
+  Electric Vehicles
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Sushil
+    family-names: Varma
+    email: sushil-mahavir.varma@inria.fr
+    affiliation: INRIA Paris
+  - given-names: Chen
+    family-names: Zhang
+    email: chenzh708@gmail.com
+    affiliation: Georgia Institute of Technology
+repository-code: 'https://github.com/smv30/spatial_queueing'
+url: 'https://github.com/smv30/spatial_queueing'
+abstract: >-
+  This open-source simulation framework models electric
+  vehicle (EV) on-demand transportation systems. Utilizing a
+  spatial queueing mechanism, the framework integrates
+  essential parameters such as charging station locations,
+  vehicle placements, and algorithms for passenger demand
+  dispatching and charging strategies. By incorporating
+  real-world datasets, the simulator enables decision-makers
+  to test and optimize performance through customizable
+  parameters and scenarios while addressing critical
+  challenges like charger placement, fleet management, and
+  algorithm effectiveness. It facilitates the evaluation of
+  various matching algorithms and charging methods. Built on
+  a process-based discrete-event simulation architecture
+  using SimPy, this modular and scalable framework empowers
+  urban planners to experiment with different scenarios and
+  optimize EV fleet operations in real-world contexts.
+keywords:
+  - electric vehicles
+  - simulation framework
+  - on-demand transportation
+  - spatial queueing
+  - EV charging strategies
+  - fleet management
+  - urban planning
+  - vehicle dispatching algorithms
+date-released: '2024-10-03'

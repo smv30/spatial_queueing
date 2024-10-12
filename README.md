@@ -1,5 +1,4 @@
-# Spatial Queueing
-# SQ-Sim: Electric Autonomous Vehicle Ride Hailing Simulation Framework
+# EV-Sim: A Simulation Framework for Ride-Hailing with Electric Vehicles
 
 
 
@@ -669,8 +668,8 @@ Below are some results of the simulation.
 
 ## Contact
 ### Sushil Varma
-- School: 
-- Email: 
+- School: INRIA Paris
+- Email: sushil-mahavir.varma@inria.fr
 
 ### Chen Zhang
 - School: Georgia Institute of Technology
