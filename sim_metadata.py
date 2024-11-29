@@ -4,6 +4,7 @@ from enum import Enum, auto
 
 class SimMetaData(object):
     avg_vel_mph = 30
+    velocity_from_dataset = True
     consumption_kwhpmi = 0.25
     pack_size_kwh = 50
     charge_rate_kw = 20
