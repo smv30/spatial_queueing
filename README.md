@@ -458,12 +458,13 @@ For ```SimMetatData``` class, such as:
 1. ```avg_vel_mph```: Average velocity of EVs in miles per hour. This can be either set by the user or get from the dataset.
    - Default Behavior: The simulator can automatically calculate the average velocity from the dataset. If the users prefer this, they can simply set any value for ```avg_vel_mph``` in ```sim_metadata.py```, and the system will override it with the calculated value, which will be printed in the console.
    - Custom Velocity: To specify a custom average velocity, users should comment out line 343-345 in the ```real_life_data_input.py``` file, and set the desired value of ```avg_vel_mph``` in ```sim_metadata.py```.
-2. ```consumption_kwhpmi```: Energy consumption in kWh per mile. This parameter determines the energy consumption rate of EVs. By default, this value comes from the information of the selected EV model. Users can also comment out line 108 and 114 in ```main.py``` and then customize its value in ```sim_metadata.py```. Adjusting this parameter will directly affect the energy efficiency of vehicles during the simulation.
-3. ```pack_size_kwh```: Battery pack size in kWh. This parameter defines the energy capacity of the EVs. By default, this value is calculated based on the selected EV model. Users can also comment out line 107, 110, and 113 in ```main.py``` and then customize its value in ```sim_metadata.py``` to simulate vehicles with different battery capacities.
-4. ```charge_rate_kw```: Charging rate in kW. This parameter determines how quickly EVs can charge. Users can change its value in ```main.py```.
-5. ```min_allowed_soc```: Minimum State of Charge of EV. This ensures that vehicles are only dispatched if their SoC remains above this level after completing trips and reaching the nearest charger. Adjust this parameter in ```sim_metadata.py``` to set a safety threshold for vehicle dispatch.
-6. ```quiet_sim```: Users can set this to ```True``` if they prefer not to print detailed simulation logs during the execution. They can set this to ```False``` for debugging purposes.
-7. ```test```: When set this to ```True```, the system uses an existing sample dataset (```sampledata.csv```). When set this to ```False```, the system processes the original dataset to generate a new sample dataset.
+2. ```velocity_from_dataset```: Users can set this to ```True``` to use the average velocity from dataset. They can set this to ```False``` to enable custom velocity.
+3. ```consumption_kwhpmi```: Energy consumption in kWh per mile. This parameter determines the energy consumption rate of EVs. By default, this value comes from the information of the selected EV model. Users can also comment out line 108 and 114 in ```main.py``` and then customize its value in ```sim_metadata.py```. Adjusting this parameter will directly affect the energy efficiency of vehicles during the simulation.
+4. ```pack_size_kwh```: Battery pack size in kWh. This parameter defines the energy capacity of the EVs. By default, this value is calculated based on the selected EV model. Users can also comment out line 107, 110, and 113 in ```main.py``` and then customize its value in ```sim_metadata.py``` to simulate vehicles with different battery capacities.
+5. ```charge_rate_kw```: Charging rate in kW. This parameter determines how quickly EVs can charge. Users can change its value in ```main.py```.
+6. ```min_allowed_soc```: Minimum State of Charge of EV. This ensures that vehicles are only dispatched if their SoC remains above this level after completing trips and reaching the nearest charger. Adjust this parameter in ```sim_metadata.py``` to set a safety threshold for vehicle dispatch.
+7. ```quiet_sim```: Users can set this to ```True``` if they prefer not to print detailed simulation logs during the execution. They can set this to ```False``` for debugging purposes.
+8. ```test```: When set this to ```True```, the system uses an existing sample dataset (```sampledata.csv```). When set this to ```False```, the system processes the original dataset to generate a new sample dataset.
 
 For ```PickupThresholdMatchingParams``` class:
 1. ```threshold_percent```: Percentage threshold for the maximum allowable pickup time relative to the total trip time. This parameter is used when the pickup threshold type is set to ```PERCENT_THRESHOLD```, ```BOTH_PERCENT_AND_CONSTANT```, or ```EITHER_PERCENT_OR_CONSTANT```. If the car's pickup time is less than or equal to ```threshold_percent * trip_time_min```, it will be considered for dispatch. Users can adjust this value in ```sim_metadata.py``` to make the matching algorithm more or less strict.
@@ -581,12 +582,13 @@ This section shows an example simulation running with the following parameters:
 20. ```dataset_path``` = ```"yellow_tripdata_2024-05.parquet"```
 21. ```ev_model``` = ```"Tesla_Model_3"```
 22. ```avg_vel_mph``` = Comes from the dataset (equals to 10.501)
-23. ```consumption_kwhpmi``` = Comes from the EV model (equals to 0.23)
-24. ```pack_size_kwh``` = Calculated based on the EV model (equals to 51.75)
-25. ```min_allowed_soc``` = 0.05
-26. ```safety_factor_to_reach_closest_charger``` = 1.5
-27. ```n_cars_driving_to_charger_discounter``` = 0.5
-28. ```percentile_lat_lon``` = 99.9
+23. ```velocity_from_dataset``` = True
+24. ```consumption_kwhpmi``` = Comes from the EV model (equals to 0.23)
+25. ```pack_size_kwh``` = Calculated based on the EV model (equals to 51.75)
+26. ```min_allowed_soc``` = 0.05
+27. ```safety_factor_to_reach_closest_charger``` = 1.5
+28. ```n_cars_driving_to_charger_discounter``` = 0.5
+29. ```percentile_lat_lon``` = 99.9
 
 Below are some results of the simulation.
 
@@ -633,16 +635,17 @@ This section shows another example simulation running with the following paramet
 20. ```dataset_path``` = ```"yellow_tripdata_2024-05.parquet"```
 21. ```ev_model``` = ```"Tesla_Model_3"```
 22. ```avg_vel_mph``` = Comes from the dataset (equals to 11.208)
-23. ```consumption_kwhpmi``` = Comes from the EV model (equals to 0.23)
-24. ```pack_size_kwh``` = Calculated based on the EV model (equals to 51.75)
-25. ```min_allowed_soc``` = 0.05
-26. ```threshold_percent_of_cars_idling``` = 0.05
-27. ```n_trips_before_updating_d``` = 1000
-28. ```safety_factor_to_reach_closest_charger``` = 1.5
-29. ```start_of_the_night``` = 23
-30. ```end_of_the_night``` = 6
-31. ```n_cars_driving_to_charger_discounter``` = 0.5
-32. ```percentile_lat_lon``` = 99.9
+23. ```velocity_from_dataset``` = True
+24. ```consumption_kwhpmi``` = Comes from the EV model (equals to 0.23)
+25. ```pack_size_kwh``` = Calculated based on the EV model (equals to 51.75)
+26. ```min_allowed_soc``` = 0.05
+27. ```threshold_percent_of_cars_idling``` = 0.05
+28. ```n_trips_before_updating_d``` = 1000
+29. ```safety_factor_to_reach_closest_charger``` = 1.5
+30. ```start_of_the_night``` = 23
+31. ```end_of_the_night``` = 6
+32. ```n_cars_driving_to_charger_discounter``` = 0.5
+33. ```percentile_lat_lon``` = 99.9
 
 Below are some results of the simulation.
 

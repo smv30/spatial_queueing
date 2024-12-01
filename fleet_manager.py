@@ -188,10 +188,6 @@ class FleetManager:
             else:
                 raise ValueError(f"Charging algorithm {self.charging_algo} does not exist")
             curr_time_min = self.env.now
-            pickup_datetime = self.trip_data["pickup_datetime"].iloc[counter]
-            dropoff_datetime = self.trip_data["dropoff_datetime"].iloc[counter]
-            trip_time_sec = dropoff_datetime - pickup_datetime
-            trip_time_min = int(trip_time_sec.total_seconds() / 60.0)
             trip = Trip(env=self.env,
                         arrival_time_min=curr_time_min,
                         trip_id=self.n_arrivals,
@@ -201,7 +197,7 @@ class FleetManager:
                         start_lat=self.trip_data["pickup_latitude"].iloc[counter],
                         end_lon=self.trip_data["dropoff_longitude"].iloc[counter],
                         end_lat=self.trip_data["dropoff_latitude"].iloc[counter],
-                        trip_time_min=trip_time_min)
+                        trip_time_min=self.trip_data["trip_time_min"].iloc[counter])
             self.list_trips.append(trip)
 
             car_id, pickup_time_min, n_available_cars_to_match = self.matching_algorithms(trip=trip,

@@ -98,7 +98,8 @@ class DataInput:
                 "pickup_latitude": [start_lat],
                 "pickup_longitude": [start_lon],
                 "dropoff_latitude": [end_lat],
-                "dropoff_longitude": [end_lon]
+                "dropoff_longitude": [end_lon],
+                "trip_time_min": [trip_time_min]
             })
             df_trips = pd.concat([df_trips, df_this_trip], ignore_index=True)
             inter_arrival_time_min = SimMetaData.random_seed_gen.exponential(1 / arrival_rate_pmin)
@@ -337,12 +338,18 @@ class DataInput:
             # Step 3: save the dataframe into a CSV file or read the dataframe from a CSV file
             df_output.to_csv(sample_data_path)
         df_output["pickup_datetime"] = pd.to_datetime(df_output["pickup_datetime"])
-        df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
-        df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output[
-            "pickup_datetime"]).dt.total_seconds() / 60.0
-        SimMetaData.avg_vel_mph = np.mean(df_output["trip_distance"]) / np.mean(df_output["trip_time_min"]) * 60
-        warnings.warn(
-            f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
+        if SimMetaData.velocity_from_dataset:
+            df_output["dropoff_datetime"] = pd.to_datetime(df_output["dropoff_datetime"])
+            df_output["trip_time_min"] = (df_output["dropoff_datetime"] - df_output[
+                "pickup_datetime"]).dt.total_seconds() / 60.0
+            SimMetaData.avg_vel_mph = np.mean(df_output["trip_distance"]) / np.mean(df_output["trip_time_min"]) * 60
+            warnings.warn(
+                f"Average velocity changed based on the input data. New average velocity = {SimMetaData.avg_vel_mph}.")
+        else:
+            df_output["trip_time_min"] = df_output["trip_distance"] / SimMetaData.avg_vel_mph * 60.0
+            df_output["dropoff_datetime"] = (pd.to_datetime(df_output["pickup_datetime"] +
+                                                            pd.to_timedelta(df_output["trip_time_min"], 'm'))
+                                             .dt.strftime('%Y-%m-%d %H:%M:%S'))
         if DatasetParams.uniform_locations is True:
             df_output["pickup_latitude"], df_output["pickup_longitude"] = sample_unif_points_on_sphere(
                 lon_max=DatasetParams.longitude_range_max,
@@ -366,9 +373,10 @@ class DataInput:
                 dist_func=DistFunc.MANHATTAN.value,
                 dist_correction_factor=1
             )
-            df_output["trip_time_min"] = df_output["trip_distance"] / SimMetaData.avg_vel_mph * 60
-            df_output["dropoff_datetime"] = df_output["pickup_datetime"] + pd.to_timedelta(df_output["trip_time_min"],
-                                                                                           'm')
+            df_output["trip_time_min"] = df_output["trip_distance"] / SimMetaData.avg_vel_mph * 60.0
+            df_output["dropoff_datetime"] = (pd.to_datetime(df_output["pickup_datetime"] +
+                                                            pd.to_timedelta(df_output["trip_time_min"], 'm'))
+                                             .dt.strftime('%Y-%m-%d %H:%M:%S'))
 
         # Plot all trips' start longitude in a histogram
         if not SimMetaData.quiet_sim:
