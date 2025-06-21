@@ -1,6 +1,6 @@
 # EV-Sim: A Simulation Framework for Ride-Hailing with Electric Vehicles
 
-
+If you would like to reproduce the results of "Electric Vehicle Fleet and Charging Infrastructure Planning", then go to the branch [management-science-version](https://github.com/smv30/spatial_queueing/tree/management-science-version).
 
 ## Introduction
 The transportation industry is rapidly shifting from internal combustion engine vehicles to electric vehicles (EVs), driven by technological advancements, growing climate awareness, and strong government support.
