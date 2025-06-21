@@ -9,6 +9,7 @@ from utils import calc_dist_between_two_points
 from data_logging import DataLogging
 from datetime import timedelta
 from mpl_toolkits.basemap import Basemap
+from tqdm import tqdm
 
 
 # FleetManager run the functions every minute
@@ -84,7 +85,7 @@ class FleetManager:
                     ]
                 total_kwh_spent = sum(df_night_trips["trip_distance"]) * SimMetaData.consumption_kwhpmi
                 list_total_kwh_spent_night.append(total_kwh_spent)
-        while True:  # everything inside runs every arrival
+        for _ in tqdm(range(len(self.trip_data)), desc="Simulating Arrivals, Hang Tight!"):  # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
             self.df_list_charger = pd.DataFrame([
                 self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
