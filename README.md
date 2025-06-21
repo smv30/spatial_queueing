@@ -8,7 +8,7 @@ Start by cloning the repository and switching to the branch "management-science-
 ```
 git clone https://github.com/smv30/spatial_queueing.git
 cd spatial_queueing
-git checkout feature/management_science_version
+git checkout management-science-version
 ```
 Next, we create a virtual conda enivornment and install all the necessary packages.
 ```
