@@ -44,7 +44,7 @@ if __name__ == "__main__":
     data_dir = os.path.join(curr_dir, "data")
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
-    for input_arrival_rate_pmin in [5, 10, 20, 40, 80, 160, 320]:
+    for input_arrival_rate_pmin in tqdm([5, 10, 20, 40, 80, 160, 320], desc="Generating Datasets"):
         for data_no in [1, 2, 3, 4, 5]:
             generate_trips(arrival_rate_pmin=input_arrival_rate_pmin,
                         sim_duration_min=1000,
