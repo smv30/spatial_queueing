@@ -1,24 +1,5 @@
-# EV-based Transportation System
-
-In this document, we outline how to use this simulation framework to reproduce the results reported in [1].
-
-## Setup
-
-Start by cloning the repository and switching to the branch "management-science-version".
-```
-git clone https://github.com/smv30/spatial_queueing.git
-cd spatial_queueing
-git checkout feature/management_science_version
-```
-Next, we create a virtual conda enivornment and install all the necessary packages.
-```
-conda create -n spatial_queueing python=3.9
-conda activate spatial_queueing
-pip install -r requirements.txt
-```
-
 # Chicago Dataset
-Now that we have setup our code and installed the necessary packages, we now need to download the Chicago Trip Dataset. While this dataset was downloaded from [2], we provide a pre-filtered dataset ready to use for our purposes on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the root folder: spatial_queueing. Now we are ready to run the simulations.
+We first need to download the Chicago Trip Dataset. While this dataset was downloaded from [2], we provide a pre-filtered dataset ready to use for our purposes on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the root folder: spatial_queueing. Now we are ready to run the simulations.
 
 ## Running your first simulation
 Run the detailed simulation using the following command:
