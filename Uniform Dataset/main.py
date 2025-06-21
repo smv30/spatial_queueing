@@ -275,7 +275,7 @@ if __name__ == "__main__":
         raise ValueError(f"Matching algorithm {args.matching_policy} is not defined")
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     results_folder = os.path.join(curr_dir, args.results_folder)
-    dataset_path = os.path.join(curr_dir, f"uniform_dataset/random_data_{args.repeat}_with_arrival_rate_{args.arrival_rate_p_min}_per_min_and_sim_duration_1000_mins.csv")
+    dataset_path = os.path.join(curr_dir, f"data/random_data_{args.repeat}_with_arrival_rate_{args.arrival_rate_p_min}_per_min_and_sim_duration_1000_mins.csv")
     run_simulation(sim_duration=1000,
                    n_cars=args.fleet_size,
                    arrival_rate_pmin=args.arrival_rate_p_min,
