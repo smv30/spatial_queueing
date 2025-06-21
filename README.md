@@ -20,8 +20,8 @@ If you would like to run the simulations for the Chicago Dataset, run the comman
 ```
 cd chicago_dataset/
 ```
-and follow the instructions in the README.md file found inside the "[chicago_dataset](./chicago_dataset/)" folder. Similarly, if you would like to run the simulations for the Uniform Dataset, run the command
+and follow the instructions in the README.md file found inside the [chicago_dataset](./chicago_dataset/) folder. Similarly, if you would like to run the simulations for the Uniform Dataset, run the command
 ```
 cd uniform_dataset/
 ```
-and follow the instructions in the README.md file found inside the "[uniform_dataset](./uniform_dataset/)" folder.
+and follow the instructions in the README.md file found inside the [uniform_dataset](./uniform_dataset/) folder.
