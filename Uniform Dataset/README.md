@@ -3,7 +3,7 @@ While this dataset was generated uniformly at random, we provide a pre-generated
 ```
 unzip Uniform\ Dataset.zip -d data/
 ```
-Now we are ready to run the simulations.
+This command places all the files inside a "data" folder. Now we are ready to run the simulations.
 
 ## Running your first simulation
 Run the detailed simulation using the following command:
