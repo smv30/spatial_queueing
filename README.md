@@ -10,7 +10,7 @@ git clone https://github.com/smv30/spatial_queueing.git
 cd spatial_queueing
 git checkout management-science-version
 ```
-Next, we create a virtual conda enivornment and install all the necessary packages.
+Next, we create a virtual conda environment and install all the necessary packages.
 ```
 conda create -n spatial_queueing -y python=3.9
 conda activate spatial_queueing
