@@ -21,7 +21,7 @@ The following sample simulation takes about 30 minutes to run:
 ```
 python main.py -ev "Tesla_Model_3" -ckw 20 -algo "POD" -d 2 -t 45 -nev 800 -nc 150 -pt 0.2 -rf "simulation_results"
 ```
-Note that the run time grows as -pt increases, reaching 3.5 hours for pt=0.6. The simulation results can be found within the specified folder "-rf", which is created inside "spatial_queueing/Chicago Dataset". Each simulation creates a parent folder within -rf folder, and the stackplot for the simulation is saved within the parent folder -> plots -> demand_curve_stackplot.png.
+Note that the run time grows as -pt increases, reaching 3.5 hours for pt=0.6. The simulation results can be found within the specified folder "-rf", which is created inside "spatial_queueing/chicago_dataset". Each simulation creates a parent folder within -rf folder, and the stackplot for the simulation is saved within the parent folder -> plots -> demand_curve_stackplot.png.
 
 ## Fleet size for 90% workload
 In this study, we compare the fleet size corresponding to 90% workload served under various policies. As described above, run main.py for 593 different combinations of parameters as documented in inputs_fleet_plot.csv. To postprocess the resultant data to generate Figure 5 and 6, simply run the following command:
