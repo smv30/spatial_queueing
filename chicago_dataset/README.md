@@ -7,6 +7,7 @@ Run the detailed simulation using the following command:
 python main.py -ev <ev> -ckw <ckw> -algo <algo> -d <d> -t <t> -nev <nev> -nc <nc> -pt <pt> -rf <rf>
 ```
 Below, we provide a brief description of the inputs:
+```
 - ev (str): sets a type of EV which determines the battery pack size (kWh), consumption (kWh/mi), and battery degradation (%). Possible values: {"Nissan_Leaf", "Tesla_Model_3", "Mustang_Mach_E_ER_AWD", "Waymo"}.
 - ckw (int): charge rate in kW.
 - algo (str): sets the matching and charging policy. Possible values: {"POD",  "CAD", "POTP", "CAN_POD",  "CAN_CAD", "CAN_R_POD", "CAN_R_POD_N"}.
@@ -16,12 +17,13 @@ Below, we provide a brief description of the inputs:
 - nc (int): number of chargers.
 - pt (float): uniformly samples pt fraction of total trips to modulate the average arrival rate.
 - rf (str): the results folder where all the data will be saved.
+```
 
 The following sample simulation takes about 30 minutes to run:
 ```
 python main.py -ev "Tesla_Model_3" -ckw 20 -algo "POD" -d 2 -t 45 -nev 800 -nc 150 -pt 0.2 -rf "simulation_results"
 ```
-Note that the run time grows as -pt increases, reaching 3.5 hours for pt=0.6. The simulation results can be found within the specified folder "-rf", which is created inside "spatial_queueing/chicago_dataset". Each simulation creates a parent folder within the -rf folder, and the stackplot for the simulation is saved within the parent folder -> plots -> demand_curve_stackplot.png.
+Note that the run time grows as `pt` increases, reaching 3.5 hours for pt=0.6. The simulation results are in the specified folder `rf`, which is created inside "spatial_queueing/chicago_dataset". Each simulation creates a sim_folder within the `rf` folder, and the stackplot for the simulation is saved within "spatial_queueing/chicago_dataset" -> `rf` -> sim_folder -> plots -> "demand_curve_stackplot.png".
 
 ## Fleet size for 90% workload
 In this study, we compare the fleet size corresponding to 90% workload served under various policies. As described above, run main.py for 593 different combinations of parameters as documented in inputs_fleet_plot.csv. To postprocess the resultant data to generate Figures 5 and 6, simply run the following command:
