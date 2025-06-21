@@ -244,8 +244,8 @@ def run_simulation(
         plt.clf()
 
     print(f"Simulation Time: {time.time() - start_time} secs")
-    print(service_level_percentage)
-    print(service_level_percentage_second_half)
+    print(f"{np.round(service_level_percentage, 2)}\% of trips successfully served")
+    print(f"{np.round(service_level_percentage_second_half, 2)}\% of trips successfully served in the second half of the simulation")
     return kpi
 
 
