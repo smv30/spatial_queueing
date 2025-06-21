@@ -1,5 +1,5 @@
 # Uniform Dataset
-While this dataset was generated uniformly at random, we provide a pre-generated dataset that we used for our simulations on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the folder: "spatial_queueing/data", where "spatial_queueing" is our root folder. Now we are ready to run the simulations.
+While this dataset was generated uniformly at random, we provide a pre-generated dataset that we used for our simulations on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the folder: "spatial_queueing/Uniform Data/data", where "spatial_queueing" is our root folder. Now we are ready to run the simulations.
 
 ## Running your first simulation
 Run the detailed simulation using the following command:
