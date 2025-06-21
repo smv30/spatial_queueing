@@ -12,7 +12,7 @@ git checkout management-science-version
 ```
 Next, we create a virtual conda enivornment and install all the necessary packages.
 ```
-conda create -n spatial_queueing python=3.9
+conda create -n spatial_queueing -y python=3.9
 conda activate spatial_queueing
 pip install -r requirements.txt
 ```
