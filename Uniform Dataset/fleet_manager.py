@@ -4,6 +4,7 @@ from arrivals import Trip
 from sim_metadata import TripState, CarState, SimMetaData, ChargingAlgoParams, MatchingAlgo, ChargerState, ChargingAlgo
 from utils import calc_dist_between_two_points, bin_numbers
 from data_logging import DataLogging
+from tqdm import tqdm
 
 
 # FleetManager run the functions every minute
@@ -38,7 +39,7 @@ class FleetManager:
 
     def match_trips(self):
         time_to_go_for_data_logging = 0
-        while True:    # everything inside runs every arrival
+        for _ in tqdm(range(len(self.df_trip_data)), desc="Simulating Arrivals"):  # everything inside runs every arrival
             df_car_tracker = pd.DataFrame([self.car_tracker[car].to_dict() for car in range(self.n_cars)])
             self.df_list_charger = pd.DataFrame([
                 self.list_chargers[charger].to_dict() for charger in range(len(self.list_chargers))
