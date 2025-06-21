@@ -14,7 +14,7 @@ def generate_trips(sim_duration_min, arrival_rate_pmin, data_dir, data_no):
         "end_lon": []
     })
     while curr_time_min <= sim_duration_min:
-        seed = 2023 + data_no
+        seed = data_no * arrival_rate_pmin
         SimMetaData.random_seed_gen = np.random.default_rng(seed)
         start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
         start_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
