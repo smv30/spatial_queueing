@@ -1,9 +1,5 @@
 # Uniform Dataset
-While this dataset was generated uniformly at random, we provide a pre-generated dataset that we used for our simulations on [this Dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download the folder "uniform_dataset" and place it in the folder: "spatial_queueing/uniform_dataset/", where "spatial_queueing" is our root folder. This will download a zip file, and to unzip it, run the following command:
-```
-unzip uniform_dataset.zip -d data/
-```
-This command places all the files inside a "data" folder. You can alternatively run the following command to generate all the necessary uniformly generated datasets (possibly different from the Dropbox link):
+You can run the following command to generate all the necessary uniformly generated datasets (the seed is set to 2023 to ensure reproducibility):
 ```
 python generate_data.py
 ```
