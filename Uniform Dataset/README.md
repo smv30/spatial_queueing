@@ -10,7 +10,7 @@ Run the detailed simulation using the following command:
 ```
 python main.py -nev <nev> -nc <nc> -lambda <lambda> -r <r> -ps <ps> -np <np> -rf <rf>
 ```
-Below we provide a brief description of the inputs:
+Below, we provide a brief description of the inputs:
 - nev (int): number of EVs.
 - nc (int): number of chargers.
 - lambda (int): arrival rate of customers per minute.
@@ -19,14 +19,14 @@ Below we provide a brief description of the inputs:
 - np (int): Number of posts per charger.
 - rf (str): results folder
 
-The following sample simulation takes about 20 mins to run:
+The following sample simulation takes about 20 minutes to run:
 ```
-python main.py -nev 1000 -nc 500 -lambda 80 -r 1 -ps 40 -np 1 -rf "simulation_results"
+python main.py -nev 1500 -nc 500 -lambda 80 -r 1 -ps 40 -np 1 -rf "simulation_results"
 ```
-Note that the run time grows as -lambda increases, reaching 3 hours for lambda=320. Each simulation creates a parent folder and the stackplot for the sim is saved in parent folder -> plots -> demand_curve_stackplot.png.
+Note that the run time grows as -lambda increases, reaching 3 hours for lambda=320. The simulation results will be saved in the -rf folder, which will be created within "spatial_queueing/uniform_dataset". Each simulation creates a parent folder within -rf, and the stackplot for the sim is saved in the parent folder -> plots -> demand_curve_stackplot.png.
 
 ## Asymptotic Sim
-In this study, we verify the infrastructure planning prescription of Theorem 1 and 2 in [1] by deducing several fleet size and number of charger combinations resulting in 90% service level for arrival rates {5, 10, 20, ..., 320}. To reproduce Figure 11, run main.py for 140 different combinations of parameters as documented in inputs_asymptotic_sim.csv. To postprocess the resultant data to generate Figure 5 and 6, simply run the following command:
+In this study, we verify the infrastructure planning prescription of Theorems 1 and 2 in [1] by deducing several fleet size and number of charger combinations resulting in 90% service level for arrival rates {5, 10, 20, ..., 320}. To reproduce Figure 11, run main.py for 140 different combinations of parameters as documented in inputs_asymptotic_sim.csv. To postprocess the resultant data to generate Figure 5 and 6, simply run the following command:
 ```
 python post_processing.py -root <results_folder (rf)> -output "asymptotic_sim"
 ```
