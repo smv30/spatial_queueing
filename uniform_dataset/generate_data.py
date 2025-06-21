@@ -13,6 +13,8 @@ def generate_trips(sim_duration_min, arrival_rate_pmin, data_dir, data_no):
         "end_lon": []
     })
     while curr_time_min <= sim_duration_min:
+        seed = 2023 + data_no
+        SimMetaData.random_seed_gen = np.random.default_rng(seed)
         start_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
         start_lon = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lon)
         end_lat = SimMetaData.random_seed_gen.uniform(0, SimMetaData.max_lat)
@@ -37,9 +39,13 @@ def generate_trips(sim_duration_min, arrival_rate_pmin, data_dir, data_no):
 
 
 if __name__ == "__main__":
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(curr_dir, "data")
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
     for input_arrival_rate_pmin in [5, 10, 20, 40, 80, 160, 320]:
         for data_no in [1, 2, 3, 4, 5]:
             generate_trips(arrival_rate_pmin=input_arrival_rate_pmin,
                         sim_duration_min=1000,
-                        data_dir="/storage/home/hcoda1/9/svarma35/p-smaguluri3-0/spatial_queueing/data",
+                        data_dir= data_dir,
                         data_no=data_no)

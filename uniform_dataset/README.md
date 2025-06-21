@@ -1,9 +1,13 @@
 # Uniform Dataset
-While this dataset was generated uniformly at random, we provide a pre-generated dataset that we used for our simulations on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download the folder "uniform_dataset" and place it in the folder: "spatial_queueing/uniform_dataset/", where "spatial_queueing" is our root folder. This will download a zip file and to unzip it, run the following command:
+While this dataset was generated uniformly at random, we provide a pre-generated dataset that we used for our simulations on [this Dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download the folder "uniform_dataset" and place it in the folder: "spatial_queueing/uniform_dataset/", where "spatial_queueing" is our root folder. This will download a zip file, and to unzip it, run the following command:
 ```
 unzip uniform_dataset.zip -d data/
 ```
-This command places all the files inside a "data" folder. Now we are ready to run the simulations.
+This command places all the files inside a "data" folder. You can alternatively run the following command to generate all the necessary uniformly generated datasets (possibly different from the Dropbox link):
+```
+python generate_data.py
+```
+This command generates all the datasets inside a "data" folder. Now we are ready to run the simulations.
 
 ## Running your first simulation
 Run the detailed simulation using the following command:
@@ -11,6 +15,7 @@ Run the detailed simulation using the following command:
 python main.py -nev <nev> -nc <nc> -lambda <lambda> -r <r> -ps <ps> -np <np> -rf <rf>
 ```
 Below, we provide a brief description of the inputs:
+```
 - nev (int): number of EVs.
 - nc (int): number of chargers.
 - lambda (int): arrival rate of customers per minute.
@@ -18,12 +23,13 @@ Below, we provide a brief description of the inputs:
 - ps (int): Battery pack size in kWh.
 - np (int): Number of posts per charger.
 - rf (str): results folder
+```
 
 The following sample simulation takes about 20 minutes to run:
 ```
 python main.py -nev 1500 -nc 500 -lambda 80 -r 1 -ps 40 -np 1 -rf "simulation_results"
 ```
-Note that the run time grows as -lambda increases, reaching 3 hours for lambda=320. The simulation results will be saved in the -rf folder, which will be created within "spatial_queueing/uniform_dataset". Each simulation creates a parent folder within -rf, and the stackplot for the sim is saved in the parent folder -> plots -> demand_curve_stackplot.png.
+Note that the run time grows as `lambda` increases, reaching 3 hours for lambda=320. The simulation results will be saved in the `rf` folder mentioned above, created within "spatial_queueing/uniform_dataset". Each simulation creates a sim_folder within `rf`, and the stackplot for the sim is saved in "spatial_queueing/uniform_dataset" -> `rf` -> sim_folder -> plots -> "demand_curve_stackplot.png".
 
 ## Asymptotic Sim
 In this study, we verify the infrastructure planning prescription of Theorems 1 and 2 in [1] by deducing several fleet size and number of charger combinations resulting in 90% service level for arrival rates {5, 10, 20, ..., 320}. To reproduce Figure 11, run main.py for 140 different combinations of parameters as documented in inputs_asymptotic_sim.csv. To postprocess the resultant data to generate Figure 5 and 6, simply run the following command:
