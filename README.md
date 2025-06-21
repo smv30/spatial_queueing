@@ -18,10 +18,10 @@ pip install -r requirements.txt
 ```
 If you would like to run the simulations for the Chicago Dataset, run the command
 ```
-cd Chicago\ Dataset/
+cd chicago_dataset/
 ```
 and follow the instructions in the README.md file found inside the "Chicago Dataset" folder. Similarly, if you would like to run the simulations for the Uniform Dataset, run the command
 ```
-cd Uniform\ Dataset/
+cd uniform_dataset/
 ```
 and follow the instructions in the README.md file found inside the "Uniform Dataset" folder.
