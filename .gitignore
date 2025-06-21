@@ -5,3 +5,7 @@ __pycache__
 .idea
 *.xml
 *.iml
+.DS_Store
+uniform_dataset/data/*.csv
+chicago_dataset/Chicago_year_2022_month_06.csv
+uniform_dataset/uniform_dataset.zip
