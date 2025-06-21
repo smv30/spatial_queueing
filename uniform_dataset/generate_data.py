@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from sim_metadata import SimMetaData
 import numpy as np
+from tqdm import tqdm
 
 
 def generate_trips(sim_duration_min, arrival_rate_pmin, data_dir, data_no):
