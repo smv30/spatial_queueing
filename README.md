@@ -16,3 +16,12 @@ conda create -n spatial_queueing -y python=3.9
 conda activate spatial_queueing
 pip install -r requirements.txt
 ```
+If you would like to run the simulations for the Chicago Dataset, run the command
+```
+cd Chicago\ Dataset/
+```
+and follow the instructions in the README.md file found inside the "Chicago Dataset" folder. Similarly, if you would like to run the simulations for the Uniform Dataset, run the command
+```
+cd Uniform\ Dataset/
+```
+and follow the instructions in the README.md file found inside the "Uniform Dataset" folder.
