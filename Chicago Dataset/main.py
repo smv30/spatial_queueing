@@ -536,7 +536,7 @@ if __name__ == "__main__":
                    dataset_source=Dataset.CHICAGO.value,
                    uniform_locations=args.bool_uniform_loc,
                    start_datetime=datetime(2022, 6, 14, 0, 0, 0),
-                   end_datetime=datetime(2022, 6, 15, 0, 0, 0),
+                   end_datetime=datetime(2022, 6, 17, 0, 0, 0),
                    match_and_charge_algo=args.matching_and_charging_algo,
                    pickup_threshold_type=input_pickup_threshold_type,
                    adaptive_d=args.adaptive_d,
