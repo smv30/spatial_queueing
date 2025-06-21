@@ -1,5 +1,5 @@
 # Chicago Dataset
-We first need to download the Chicago Trip Dataset. While this dataset was downloaded from [2], we provide a pre-filtered dataset ready to use for our purposes on [this dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the folder: "spatial_queueing/Chicago Dataset". Now we are ready to run the simulations.
+We first need to download the Chicago Trip Dataset. While this dataset was downloaded from [2], we provide a pre-filtered dataset ready to use for our purposes on [this Dropbox link](https://www.dropbox.com/scl/fo/137ug19aq72zxsqr3zh54/ABKw2E8-hdDSjoqj7iU0cSM?rlkey=lxbtdw5a0uko44zd92m04y31z&st=jjbzieyc&dl=0). Download this file and place it in the folder: "spatial_queueing/chicago_dataset". Now we are ready to run the simulations.
 
 ## Running your first simulation
 Run the detailed simulation using the following command:
